@@ -400,3 +400,80 @@ function showToast(msg) {
 
 </body>
 </html>
+
+<script>
+let canvas = document.getElementById("canvas");
+let ctx = canvas.getContext("2d");
+
+let mode = "draw";
+let drawing = false;
+let img = new Image();
+let startX, startY;
+
+let history = [];
+let redoStack = [];
+
+function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.onresize = resizeCanvas;
+
+function pushHistory() {
+    history.push(canvas.toDataURL());
+    redoStack = [];
+}
+
+function undo() {
+    if (history.length > 1) {
+        redoStack.push(history.pop());
+        let imgData = new Image();
+        imgData.src = history[history.length - 1];
+        imgData.onload = () => ctx.drawImage(imgData, 0, 0, canvas.width, canvas.height);
+    }
+}
+
+function redo() {
+    if (redoStack.length > 0) {
+        let data = redoStack.pop();
+        history.push(data);
+        let imgData = new Image();
+        imgData.src = data;
+        imgData.onload = () => ctx.drawImage(imgData, 0, 0, canvas.width, canvas.height);
+    }
+}
+
+document.getElementById("undoBtn").onclick = undo;
+document.getElementById("redoBtn").onclick = redo;
+
+document.getElementById("undoBtn").onmousedown = () => {
+    this.hold = setTimeout(() => {
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        history = [];
+        redoStack = [];
+    }, 600);
+};
+document.getElementById("undoBtn").onmouseup = () => clearTimeout(this.hold);
+
+function loadImage(file) {
+    let reader = new FileReader();
+    reader.onload = e => {
+        img.onload = () => {
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            pushHistory();
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+document.getElementById("cameraInput").onchange = e => loadImage(e.target.files[0]);
+document.getElementById("galleryInput").onchange = e => loadImage(e.target.files[0]);
+
+function triggerCamera() {
+    document.getElementById("cameraInput").click();
+}
+
+function getTouchPos(e) {
+    let rect = canvas.get
