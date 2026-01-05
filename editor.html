@@ -21,6 +21,7 @@
         background: #000;
     }
 
+    /* Правая панель */
     #toolbar {
         position: fixed;
         right: 10px;
@@ -34,8 +35,8 @@
     .btn {
         width: 55px;
         height: 55px;
-        background: rgba(255,255,255,0.1);
-        border: 1px solid rgba(255,255,255,0.3);
+        background: rgba(0,0,0,0.35);
+        border: 1px solid rgba(255,255,255,0.15);
         border-radius: 12px;
         font-size: 28px;
         display: flex;
@@ -52,6 +53,80 @@
     input[type=file] {
         display: none;
     }
+
+    /* Нижняя панель */
+    #bottomBar {
+        position: fixed;
+        bottom: 15px;
+        left: 0;
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        padding: 0 40px;
+        z-index: 20;
+    }
+
+    .bottom-btn {
+        width: 65px;
+        height: 65px;
+        background: rgba(0,0,0,0.45);
+        border: 1px solid rgba(255,255,255,0.15);
+        border-radius: 50%;
+        font-size: 32px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        user-select: none;
+    }
+
+    /* Модальное окно */
+    #modal {
+        position: fixed;
+        top: 0; left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0,0,0,0.8);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 50;
+    }
+
+    #modalBox {
+        width: 85%;
+        background: rgba(0,0,0,0.8);
+        padding: 20px;
+        border-radius: 12px;
+        border: 1px solid rgba(255,255,255,0.2);
+    }
+
+    #modalBox input, #modalBox textarea {
+        width: 100%;
+        margin-top: 10px;
+        padding: 10px;
+        border-radius: 8px;
+        border: none;
+        font-size: 18px;
+    }
+
+    #modalButtons {
+        margin-top: 15px;
+        display: flex;
+        justify-content: space-between;
+    }
+
+    #toast {
+        position: fixed;
+        bottom: 40px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0,0,0,0.8);
+        padding: 12px 20px;
+        border-radius: 10px;
+        font-size: 18px;
+        display: none;
+        z-index: 100;
+    }
 </style>
 </head>
 
@@ -59,6 +134,7 @@
 
 <canvas id="canvas"></canvas>
 
+<!-- Правая панель -->
 <div id="toolbar">
     <label class="btn">📸<input type="file" accept="image/*" capture="environment" id="cameraInput"></label>
     <label class="btn">🖼<input type="file" accept="image/*" id="galleryInput"></label>
@@ -66,9 +142,34 @@
     <div class="btn" onclick="setMode('erase')">🧽</div>
     <div class="btn" onclick="startCrop()">✂️</div>
     <div class="btn" onclick="addGeo()">📍</div>
-    <div class="btn" onclick="addDesc()">📝</div>
+    <div class="btn" onclick="openModal()">📝</div>
     <div class="btn" onclick="saveImage()">💾</div>
 </div>
+
+<!-- Нижняя панель -->
+<div id="bottomBar">
+    <div class="bottom-btn" id="undoBtn">↩️</div>
+    <div class="bottom-btn" onclick="triggerCamera()">📸</div>
+    <div class="bottom-btn" id="redoBtn">↪️</div>
+</div>
+
+<!-- Модальное окно -->
+<div id="modal">
+    <div id="modalBox">
+        <label>Название:</label>
+        <input id="titleInput">
+
+        <label>Описание:</label>
+        <textarea id="descInput" rows="4"></textarea>
+
+        <div id="modalButtons">
+            <button onclick="closeModal()">Отмена</button>
+            <button onclick="applyText()">OK</button>
+        </div>
+    </div>
+</div>
+
+<div id="toast"></div>
 
 <script>
 let canvas = document.getElementById("canvas");
@@ -79,6 +180,9 @@ let drawing = false;
 let img = new Image();
 let startX, startY;
 
+let history = [];
+let redoStack = [];
+
 function resizeCanvas() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
@@ -86,12 +190,48 @@ function resizeCanvas() {
 resizeCanvas();
 window.onresize = resizeCanvas;
 
+function pushHistory() {
+    history.push(canvas.toDataURL());
+    redoStack = [];
+}
+
+function undo() {
+    if (history.length > 1) {
+        redoStack.push(history.pop());
+        let imgData = new Image();
+        imgData.src = history[history.length - 1];
+        imgData.onload = () => ctx.drawImage(imgData, 0, 0, canvas.width, canvas.height);
+    }
+}
+
+function redo() {
+    if (redoStack.length > 0) {
+        let data = redoStack.pop();
+        history.push(data);
+        let imgData = new Image();
+        imgData.src = data;
+        imgData.onload = () => ctx.drawImage(imgData, 0, 0, canvas.width, canvas.height);
+    }
+}
+
+document.getElementById("undoBtn").onclick = undo;
+document.getElementById("redoBtn").onclick = redo;
+
+document.getElementById("undoBtn").onmousedown = () => {
+    this.hold = setTimeout(() => {
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        history = [];
+        redoStack = [];
+    }, 600);
+};
+document.getElementById("undoBtn").onmouseup = () => clearTimeout(this.hold);
+
 function loadImage(file) {
     let reader = new FileReader();
     reader.onload = e => {
         img.onload = () => {
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            mode = "draw"; // рисование сразу
+            pushHistory();
         };
         img.src = e.target.result;
     };
@@ -101,7 +241,10 @@ function loadImage(file) {
 document.getElementById("cameraInput").onchange = e => loadImage(e.target.files[0]);
 document.getElementById("galleryInput").onchange = e => loadImage(e.target.files[0]);
 
-// --- TOUCH EVENTS ---
+function triggerCamera() {
+    document.getElementById("cameraInput").click();
+}
+
 function getTouchPos(e) {
     let rect = canvas.getBoundingClientRect();
     return {
@@ -119,14 +262,17 @@ canvas.addEventListener("touchstart", e => {
     ctx.moveTo(startX, startY);
 });
 
-canvas.addEventListener("touchend", () => drawing = false);
+canvas.addEventListener("touchend", () => {
+    drawing = false;
+    pushHistory();
+});
 
 canvas.addEventListener("touchmove", e => {
     if (!drawing) return;
     let pos = getTouchPos(e);
 
     if (mode === "draw") {
-        ctx.strokeStyle = "red"; // красная кисть
+        ctx.strokeStyle = "red";
         ctx.lineWidth = 5;
         ctx.lineTo(pos.x, pos.y);
         ctx.stroke();
@@ -137,12 +283,10 @@ canvas.addEventListener("touchmove", e => {
     }
 });
 
-// --- MODES ---
 function setMode(m) {
     mode = m;
 }
 
-// --- CROP ---
 function startCrop() {
     mode = "crop";
     alert("Выдели область пальцем");
@@ -150,8 +294,7 @@ function startCrop() {
     let cropStart = null;
 
     canvas.ontouchstart = e => {
-        let pos = getTouchPos(e);
-        cropStart = pos;
+        cropStart = getTouchPos(e);
     };
 
     canvas.ontouchend = e => {
@@ -164,39 +307,94 @@ function startCrop() {
         canvas.height = h;
         ctx.putImageData(cropped, 0, 0);
 
-        mode = "draw";
+        pushHistory();
 
+        mode = "draw";
         canvas.ontouchstart = null;
         canvas.ontouchend = null;
     };
 }
 
-// --- GEO ---
 function addGeo() {
     navigator.geolocation.getCurrentPosition(pos => {
         let text = `📍 ${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`;
-        ctx.font = "32px sans-serif";
+
+        ctx.fillStyle = "rgba(0,0,0,0.6)";
+        ctx.fillRect(10, canvas.height - 60, 500, 50);
+
         ctx.fillStyle = "white";
-        ctx.fillText(text, 20, canvas.height - 20); // слева внизу
+        ctx.font = "28px sans-serif";
+        ctx.fillText(text, 20, canvas.height - 25);
+
+        pushHistory();
     });
 }
 
-// --- DESCRIPTION ---
-function addDesc() {
-    let text = prompt("Введите описание:");
-    if (text) {
-        ctx.font = "32px sans-serif";
-        ctx.fillStyle = "white";
-        ctx.fillText(text, 20, 50);
-    }
+function openModal() {
+    document.getElementById("modal").style.display = "flex";
+
+    let now = new Date();
+    let name = now.toISOString().slice(0,19).replace(/:/g,"-");
+
+    document.getElementById("titleInput").value = name;
+    document.getElementById("descInput").value = "";
 }
 
-// --- SAVE ---
+function closeModal() {
+    document.getElementById("modal").style.display = "none";
+}
+
+function applyText() {
+    let title = document.getElementById("titleInput").value;
+    let desc = document.getElementById("descInput").value;
+
+    ctx.fillStyle = "rgba(0,0,0,0.6)";
+    ctx.fillRect(10, 10, canvas.width - 20, 120);
+
+    ctx.fillStyle = "white";
+    ctx.font = "32px sans-serif";
+    ctx.fillText(title, 20, 50);
+
+    ctx.font = "26px sans-serif";
+    ctx.fillText(desc, 20, 90);
+
+    pushHistory();
+    closeModal();
+}
+
 function saveImage() {
-    let link = document.createElement("a");
-    link.download = "edited.jpg";
-    link.href = canvas.toDataURL("image/jpeg");
-    link.click();
+    let title = document.getElementById("titleInput").value || "image";
+
+    canvas.toBlob(blob => {
+        let link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = title + ".jpg";
+        link.click();
+
+        flash();
+        showToast("Сохранено в /Download/" + title + ".jpg");
+    });
+}
+
+function flash() {
+    let f = document.createElement("div");
+    f.style.position = "fixed";
+    f.style.top = 0;
+    f.style.left = 0;
+    f.style.width = "100%";
+    f.style.height = "100%";
+    f.style.background = "white";
+    f.style.opacity = "0.8";
+    f.style.zIndex = 200;
+    document.body.appendChild(f);
+    setTimeout(() => f.remove(), 120);
+}
+
+function showToast(msg) {
+    let t = document.getElementById("toast");
+    t.innerText = msg;
+    t.style.display = "block";
+    setTimeout(() => t.style.display = "none", 2000);
 }
 </script>
 
