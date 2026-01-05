@@ -2,118 +2,196 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>Мини‑редактор</title>
+<title>Редактор фото</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <style>
-    body { margin: 0; background: #000; color: #fff; font-family: sans-serif; text-align: center; }
-    #tools { display: flex; justify-content: center; gap: 10px; padding: 10px; background: #111; }
-    button { padding: 10px 15px; background: #222; color: #fff; border: 1px solid #444; border-radius: 5px; }
-    canvas { max-width: 100%; background: #000; }
+    body {
+        margin: 0;
+        overflow: hidden;
+        background: #000;
+        font-family: sans-serif;
+        color: #fff;
+    }
+
+    #canvas {
+        width: 100vw;
+        height: 100vh;
+        touch-action: none;
+        background: #000;
+    }
+
+    #toolbar {
+        position: fixed;
+        right: 10px;
+        top: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        z-index: 10;
+    }
+
+    .btn {
+        width: 55px;
+        height: 55px;
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.3);
+        border-radius: 12px;
+        font-size: 28px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        cursor: pointer;
+        user-select: none;
+    }
+
+    .btn:active {
+        background: rgba(255,255,255,0.25);
+    }
+
+    input[type=file] {
+        display: none;
+    }
 </style>
 </head>
+
 <body>
 
-<h3>Мини‑редактор</h3>
-
-<input type="file" accept="image/*" capture="camera" id="photoInput">
-
-<div id="tools">
-    <button onclick="mode='draw'">✏️ Рисовать</button>
-    <button onclick="mode='erase'">🧽 Ластик</button>
-    <button onclick="cropMode()">✂️ Обрезать</button>
-    <button onclick="addGeo()">📍 Геолокация</button>
-    <button onclick="addDesc()">📝 Описание</button>
-    <button onclick="saveImage()">💾 Сохранить</button>
-</div>
-
 <canvas id="canvas"></canvas>
+
+<div id="toolbar">
+    <label class="btn">📸<input type="file" accept="image/*" capture="environment" id="cameraInput"></label>
+    <label class="btn">🖼<input type="file" accept="image/*" id="galleryInput"></label>
+    <div class="btn" onclick="setMode('draw')">✏️</div>
+    <div class="btn" onclick="setMode('erase')">🧽</div>
+    <div class="btn" onclick="startCrop()">✂️</div>
+    <div class="btn" onclick="addGeo()">📍</div>
+    <div class="btn" onclick="addDesc()">📝</div>
+    <div class="btn" onclick="saveImage()">💾</div>
+</div>
 
 <script>
 let canvas = document.getElementById("canvas");
 let ctx = canvas.getContext("2d");
-let img = new Image();
+
 let mode = "draw";
 let drawing = false;
+let img = new Image();
 let startX, startY;
 
-document.getElementById("photoInput").onchange = function(e) {
-    let file = e.target.files[0];
+function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.onresize = resizeCanvas;
+
+function loadImage(file) {
     let reader = new FileReader();
-    reader.onload = function(event) {
-        img.onload = function() {
-            canvas.width = img.width;
-            canvas.height = img.height;
-            ctx.drawImage(img, 0, 0);
+    reader.onload = e => {
+        img.onload = () => {
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            mode = "draw"; // рисование сразу
         };
-        img.src = event.target.result;
+        img.src = e.target.result;
     };
     reader.readAsDataURL(file);
-};
+}
 
-canvas.addEventListener("mousedown", e => {
+document.getElementById("cameraInput").onchange = e => loadImage(e.target.files[0]);
+document.getElementById("galleryInput").onchange = e => loadImage(e.target.files[0]);
+
+// --- TOUCH EVENTS ---
+function getTouchPos(e) {
+    let rect = canvas.getBoundingClientRect();
+    return {
+        x: e.touches[0].clientX - rect.left,
+        y: e.touches[0].clientY - rect.top
+    };
+}
+
+canvas.addEventListener("touchstart", e => {
+    let pos = getTouchPos(e);
     drawing = true;
-    startX = e.offsetX;
-    startY = e.offsetY;
+    startX = pos.x;
+    startY = pos.y;
+    ctx.beginPath();
+    ctx.moveTo(startX, startY);
 });
 
-canvas.addEventListener("mouseup", () => drawing = false);
+canvas.addEventListener("touchend", () => drawing = false);
 
-canvas.addEventListener("mousemove", e => {
+canvas.addEventListener("touchmove", e => {
     if (!drawing) return;
+    let pos = getTouchPos(e);
 
     if (mode === "draw") {
-        ctx.strokeStyle = "#ffffff";
+        ctx.strokeStyle = "red"; // красная кисть
         ctx.lineWidth = 5;
-        ctx.lineTo(e.offsetX, e.offsetY);
+        ctx.lineTo(pos.x, pos.y);
         ctx.stroke();
     }
 
     if (mode === "erase") {
-        ctx.clearRect(e.offsetX - 10, e.offsetY - 10, 20, 20);
+        ctx.clearRect(pos.x - 10, pos.y - 10, 20, 20);
     }
 });
 
-function cropMode() {
+// --- MODES ---
+function setMode(m) {
+    mode = m;
+}
+
+// --- CROP ---
+function startCrop() {
     mode = "crop";
-    alert("Выдели область: нажми и потяни мышью");
-    canvas.onmousedown = function(e) {
-        startX = e.offsetX;
-        startY = e.offsetY;
-        drawing = true;
+    alert("Выдели область пальцем");
+
+    let cropStart = null;
+
+    canvas.ontouchstart = e => {
+        let pos = getTouchPos(e);
+        cropStart = pos;
     };
-    canvas.onmouseup = function(e) {
-        drawing = false;
-        let w = e.offsetX - startX;
-        let h = e.offsetY - startY;
-        let cropped = ctx.getImageData(startX, startY, w, h);
+
+    canvas.ontouchend = e => {
+        let pos = getTouchPos(e);
+        let w = pos.x - cropStart.x;
+        let h = pos.y - cropStart.y;
+
+        let cropped = ctx.getImageData(cropStart.x, cropStart.y, w, h);
         canvas.width = w;
         canvas.height = h;
         ctx.putImageData(cropped, 0, 0);
+
         mode = "draw";
+
+        canvas.ontouchstart = null;
+        canvas.ontouchend = null;
     };
 }
 
+// --- GEO ---
 function addGeo() {
-    if (!navigator.geolocation) {
-        alert("Геолокация недоступна");
-        return;
-    }
     navigator.geolocation.getCurrentPosition(pos => {
         let text = `📍 ${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`;
-        ctx.font = "40px sans-serif";
+        ctx.font = "32px sans-serif";
         ctx.fillStyle = "white";
-        ctx.fillText(text, 20, canvas.height - 40);
+        ctx.fillText(text, 20, canvas.height - 20); // слева внизу
     });
 }
 
+// --- DESCRIPTION ---
 function addDesc() {
     let text = prompt("Введите описание:");
     if (text) {
-        ctx.font = "40px sans-serif";
+        ctx.font = "32px sans-serif";
         ctx.fillStyle = "white";
-        ctx.fillText(text, 20, 60);
+        ctx.fillText(text, 20, 50);
     }
 }
 
+// --- SAVE ---
 function saveImage() {
     let link = document.createElement("a");
     link.download = "edited.jpg";
