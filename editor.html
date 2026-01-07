@@ -54,15 +54,16 @@
         display: none;
     }
 
-    /* Нижняя панель */
+    /* Нижняя панель — по центру */
     #bottomBar {
         position: fixed;
         bottom: 15px;
         left: 0;
         width: 100%;
         display: flex;
-        justify-content: space-between;
-        padding: 0 40px;
+        justify-content: center;
+        align-items: center;
+        gap: 32px;
         z-index: 20;
     }
 
@@ -218,13 +219,13 @@ document.getElementById("undoBtn").onclick = undo;
 document.getElementById("redoBtn").onclick = redo;
 
 document.getElementById("undoBtn").onmousedown = () => {
-    this.hold = setTimeout(() => {
+    window._undoHold = setTimeout(() => {
         ctx.clearRect(0,0,canvas.width,canvas.height);
         history = [];
         redoStack = [];
     }, 600);
 };
-document.getElementById("undoBtn").onmouseup = () => clearTimeout(this.hold);
+document.getElementById("undoBtn").onmouseup = () => clearTimeout(window._undoHold);
 
 function loadImage(file) {
     let reader = new FileReader();
@@ -264,7 +265,8 @@ canvas.addEventListener("touchstart", e => {
 
 canvas.addEventListener("touchend", () => {
     drawing = false;
-    pushHistory();
+    if (mode === "draw" || mode === "erase")
+        pushHistory();
 });
 
 canvas.addEventListener("touchmove", e => {
@@ -302,6 +304,13 @@ function startCrop() {
         let w = pos.x - cropStart.x;
         let h = pos.y - cropStart.y;
 
+        if (w <= 0 || h <= 0) {
+            mode = "draw";
+            canvas.ontouchstart = null;
+            canvas.ontouchend = null;
+            return;
+        }
+
         let cropped = ctx.getImageData(cropStart.x, cropStart.y, w, h);
         canvas.width = w;
         canvas.height = h;
@@ -320,7 +329,7 @@ function addGeo() {
         let text = `📍 ${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`;
 
         ctx.fillStyle = "rgba(0,0,0,0.6)";
-        ctx.fillRect(10, canvas.height - 60, 500, 50);
+        ctx.fillRect(10, canvas.height - 60, canvas.width - 20, 50);
 
         ctx.fillStyle = "white";
         ctx.font = "28px sans-serif";
@@ -400,80 +409,3 @@ function showToast(msg) {
 
 </body>
 </html>
-
-<script>
-let canvas = document.getElementById("canvas");
-let ctx = canvas.getContext("2d");
-
-let mode = "draw";
-let drawing = false;
-let img = new Image();
-let startX, startY;
-
-let history = [];
-let redoStack = [];
-
-function resizeCanvas() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-}
-resizeCanvas();
-window.onresize = resizeCanvas;
-
-function pushHistory() {
-    history.push(canvas.toDataURL());
-    redoStack = [];
-}
-
-function undo() {
-    if (history.length > 1) {
-        redoStack.push(history.pop());
-        let imgData = new Image();
-        imgData.src = history[history.length - 1];
-        imgData.onload = () => ctx.drawImage(imgData, 0, 0, canvas.width, canvas.height);
-    }
-}
-
-function redo() {
-    if (redoStack.length > 0) {
-        let data = redoStack.pop();
-        history.push(data);
-        let imgData = new Image();
-        imgData.src = data;
-        imgData.onload = () => ctx.drawImage(imgData, 0, 0, canvas.width, canvas.height);
-    }
-}
-
-document.getElementById("undoBtn").onclick = undo;
-document.getElementById("redoBtn").onclick = redo;
-
-document.getElementById("undoBtn").onmousedown = () => {
-    this.hold = setTimeout(() => {
-        ctx.clearRect(0,0,canvas.width,canvas.height);
-        history = [];
-        redoStack = [];
-    }, 600);
-};
-document.getElementById("undoBtn").onmouseup = () => clearTimeout(this.hold);
-
-function loadImage(file) {
-    let reader = new FileReader();
-    reader.onload = e => {
-        img.onload = () => {
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            pushHistory();
-        };
-        img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
-}
-
-document.getElementById("cameraInput").onchange = e => loadImage(e.target.files[0]);
-document.getElementById("galleryInput").onchange = e => loadImage(e.target.files[0]);
-
-function triggerCamera() {
-    document.getElementById("cameraInput").click();
-}
-
-function getTouchPos(e) {
-    let rect = canvas.get
