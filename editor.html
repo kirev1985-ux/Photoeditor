@@ -159,9 +159,9 @@ document.getElementById("galleryInput").onchange = e => loadImage(e.target.files
 function triggerCamera() { document.getElementById("cameraInput").click(); }
 
 function getPos(e) {
+    const touch = e.touches && e.touches[0] || e.changedTouches && e.changedTouches[0] || e;
     const r = canvas.getBoundingClientRect();
-    return { x: (e.touches ? e.touches[0].clientX : e.clientX) - r.left,
-             y: (e.touches ? e.touches[0].clientY : e.clientY) - r.top };
+    return { x: touch.clientX - r.left, y: touch.clientY - r.top };
 }
 
 canvas.addEventListener("touchstart", e => {
@@ -188,6 +188,7 @@ canvas.addEventListener("touchmove", e => {
 });
 
 canvas.addEventListener("touchend", e => {
+    e.preventDefault();
     drawing = false;
     if (mode === "draw" || mode === "erase") {
         saveState();
@@ -205,7 +206,7 @@ canvas.addEventListener("touchend", e => {
             const textWidth = ctx.measureText(text + accText).width + padding * 2;
             const boxHeight = 50;
 
-            let x = posTouch.x;
+            let x = posTouch.x - textWidth / 2; // центрируем по тапу
             let y = posTouch.y - boxHeight / 2;
 
             ctx.fillStyle = "rgba(0,0,0,0.7)";
@@ -213,12 +214,7 @@ canvas.addEventListener("touchend", e => {
 
             ctx.fillStyle = "#ffffff";
             ctx.font = `bold ${fontSize}px Arial, sans-serif`;
-            ctx.fillText(text, x + padding, y + 35);
-
-            if (accText) {
-                ctx.font = `${fontSize - 4}px Arial, sans-serif`;
-                ctx.fillText(accText, x + padding + ctx.measureText(text).width, y + 35);
-            }
+            ctx.fillText(text + accText, x + padding, y + 35);
 
             saveState();
             showToast("Геотег добавлен на тапе (с погрешностью)");
