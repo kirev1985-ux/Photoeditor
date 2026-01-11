@@ -6,45 +6,44 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
-    body { margin:0; overflow:hidden; background:#000; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color:#fff; }
+    body { margin:0; overflow:hidden; background:#000; font-family:system-ui, sans-serif; color:#fff; }
     #canvas { width:100vw; height:100vh; touch-action:none; background:#000; display:block; }
     #toolbar {
-        position:fixed; right:16px; top:16px; display:flex; flex-direction:column; gap:16px; z-index:10;
+        position:fixed; right:16px; top:16px; display:flex; flex-direction:column; gap:16px; z-index:100;
     }
     .btn {
-        width:60px; height:60px; background:rgba(30,30,30,0.7); border:1px solid rgba(255,255,255,0.25);
+        width:60px; height:60px; background:rgba(30,30,30,0.8); border:1px solid rgba(255,255,255,0.3);
         border-radius:16px; font-size:32px; display:flex; justify-content:center; align-items:center;
-        cursor:pointer; user-select:none; backdrop-filter: blur(8px);
+        cursor:pointer; user-select:none; backdrop-filter:blur(8px);
     }
     .btn:active { background:rgba(80,80,80,0.9); transform:scale(0.95); }
     input[type=file] { display:none; }
     #bottomBar {
-        position:fixed; bottom:24px; left:0; width:100%; display:flex; justify-content:center; gap:48px; z-index:20;
+        position:fixed; bottom:32px; left:0; width:100%; display:flex; justify-content:center; gap:60px; z-index:90;
     }
     .bottom-btn {
-        width:72px; height:72px; background:rgba(30,30,30,0.8); border:1px solid rgba(255,255,255,0.3);
-        border-radius:50%; font-size:36px; display:flex; justify-content:center; align-items:center;
-        user-select:none; backdrop-filter: blur(10px);
+        width:68px; height:68px; background:rgba(30,30,30,0.85); border:1px solid rgba(255,255,255,0.35);
+        border-radius:50%; font-size:34px; display:flex; justify-content:center; align-items:center;
+        user-select:none; backdrop-filter:blur(10px);
     }
     #modal {
-        position:fixed; inset:0; background:rgba(0,0,0,0.9); display:none; justify-content:center; align-items:center; z-index:50;
+        position:fixed; inset:0; background:rgba(0,0,0,0.92); display:none; justify-content:center; align-items:center; z-index:200;
     }
     #modalBox {
         width:90%; max-width:440px; background:#1a1a1a; padding:28px; border-radius:20px; border:1px solid #444;
-        box-shadow: 0 10px 40px rgba(0,0,0,0.7);
     }
     #modalBox input, #modalBox textarea {
         width:100%; margin:14px 0 10px; padding:14px; border-radius:12px; border:1px solid #555;
-        background:#222; color:#fff; font-size:18px; resize:vertical;
+        background:#222; color:#fff; font-size:18px;
     }
     #modalButtons { margin-top:24px; display:flex; gap:16px; }
     #modalButtons button { flex:1; padding:16px; border-radius:12px; font-size:18px; cursor:pointer; }
     #cancelBtn { background:#444; color:#fff; border:none; }
     #okBtn     { background:#0066ff; color:#fff; border:none; }
     #toast {
-        position:fixed; bottom:120px; left:50%; transform:translateX(-50%);
+        position:fixed; bottom:140px; left:50%; transform:translateX(-50%);
         background:rgba(0,0,0,0.9); padding:16px 28px; border-radius:16px; font-size:18px;
-        backdrop-filter: blur(8px); display:none; z-index:100;
+        backdrop-filter:blur(8px); display:none; z-index:150;
     }
 </style>
 </head>
@@ -75,7 +74,7 @@
         <input id="titleInput" placeholder="Название фото">
 
         <label>Описание</label>
-        <textarea id="descInput" rows="5" placeholder="Что на фото? Можно писать длинно..."></textarea>
+        <textarea id="descInput" rows="5" placeholder="Что на фото?"></textarea>
 
         <div id="modalButtons">
             <button id="cancelBtn" onclick="closeModal()">Отмена</button>
@@ -114,6 +113,12 @@ function saveState() {
     redoStack = [];
 }
 
+function loadState(url) {
+    const img = new Image();
+    img.onload = () => ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    img.src = url;
+}
+
 function undo() {
     if (history.length > 1) {
         redoStack.push(history.pop());
@@ -129,12 +134,6 @@ function redo() {
     }
 }
 
-function loadState(dataUrl) {
-    const img = new Image();
-    img.onload = () => ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    img.src = dataUrl;
-}
-
 document.getElementById("undoBtn").onclick = undo;
 document.getElementById("redoBtn").onclick = redo;
 
@@ -142,7 +141,6 @@ function loadImage(file) {
     const reader = new FileReader();
     reader.onload = e => {
         currentImage.onload = () => {
-            // Центрируем и сохраняем пропорции
             const ratio = Math.min(canvas.width / currentImage.width, canvas.height / currentImage.height);
             const w = currentImage.width * ratio;
             const h = currentImage.height * ratio;
@@ -183,7 +181,7 @@ canvas.addEventListener("touchmove", e => {
     if (!drawing) return;
     const pos = getPos(e);
     if (mode === "draw") {
-        ctx.strokeStyle = "#ff3366"; ctx.lineWidth = 6; ctx.lineCap = "round"; ctx.lineJoin = "round";
+        ctx.strokeStyle = "#ff3366"; ctx.lineWidth = 6; ctx.lineCap = "round";
         ctx.moveTo(lastX, lastY); ctx.lineTo(pos.x, pos.y); ctx.stroke();
         lastX = pos.x; lastY = pos.y;
     } else if (mode === "erase") {
@@ -191,68 +189,99 @@ canvas.addEventListener("touchmove", e => {
     }
 });
 
-canvas.addEventListener("touchend", () => drawing = false);
+canvas.addEventListener("touchend", e => {
+    e.preventDefault();
+    drawing = false;
+    if (mode === "addGeo") {
+        const pos = getPos(e);
+        navigator.geolocation.getCurrentPosition(geo => {
+            const lat = geo.coords.latitude.toFixed(6);
+            const lon = geo.coords.longitude.toFixed(6);
+            const acc = Math.round(geo.coords.accuracy);
+            const text = `📍 ${lat}, ${lon}`;
+            const accText = acc > 0 ? ` ±${acc}м` : '';
+
+            const fontSize = 20;
+            const padding = 12;
+            const w = ctx.measureText(text + accText).width + padding*2;
+            const h = 44;
+
+            let x = pos.x - w/2;
+            let y = pos.y - h/2;
+
+            ctx.fillStyle = "rgba(0,0,0,0.75)";
+            ctx.fillRect(x, y, w, h);
+
+            ctx.fillStyle = "#fff";
+            ctx.font = `bold ${fontSize}px system-ui, sans-serif`;
+            ctx.fillText(text + accText, x + padding, y + 32);
+
+            saveState();
+            showToast("Геотег поставлен");
+            mode = "draw";
+        }, err => showToast("Гео не удалось: " + err.message), {enableHighAccuracy: true});
+    } else if (mode === "draw" || mode === "erase") {
+        saveState();
+    }
+});
 
 function setMode(m) { mode = m; }
 
 function addGeo() {
     setMode("addGeo");
-    showToast("Тапни и держи — перемещай, отпусти — зафиксируй");
+    showToast("Тапни куда ставить геотег");
 }
+
+function openModal() {
+    document.getElementById("modal").style.display = "flex";
+    const now = new Date();
+    document.getElementById("titleInput").value = now.toISOString().slice(0,19).replace(/[:T]/g,"-");
+    document.getElementById("descInput").value = "";
+}
+
+function closeModal() { document.getElementById("modal").style.display = "none"; }
 
 function applyText() {
     const title = document.getElementById("titleInput").value.trim() || "Фото";
     const desc = document.getElementById("descInput").value.trim() || "";
 
-    const currentState = canvas.toDataURL("image/jpeg", 0.92);
+    const current = canvas.toDataURL("image/jpeg", 0.92);
     const base = new Image();
-    base.src = currentState;
+    base.src = current;
     base.onload = () => {
         ctx.drawImage(base, 0, 0, canvas.width, canvas.height);
 
-        // Красивая полупрозрачная подложка с закруглением
-        ctx.fillStyle = "rgba(0,0,0,0.68)";
-        ctx.beginPath();
-        ctx.roundRect(24, 24, canvas.width - 48, 180, 16);
-        ctx.fill();
+        ctx.fillStyle = "rgba(0,0,0,0.7)";
+        ctx.fillRect(24, 24, canvas.width - 48, 160);
 
-        ctx.shadowColor = "rgba(0,0,0,0.8)";
-        ctx.shadowBlur = 12;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 4;
-
-        ctx.fillStyle = "#ffffff";
+        ctx.fillStyle = "#fff";
         ctx.font = "bold 32px system-ui, sans-serif";
-        ctx.fillText(title, 48, 78);
+        ctx.fillText(title, 48, 70);
 
-        ctx.shadowBlur = 6;
         ctx.font = "24px system-ui, sans-serif";
-        wrapText(ctx, desc, 48, 120, canvas.width - 96, 32);
+        wrapText(ctx, desc, 48, 110, canvas.width - 96, 30);
 
-        ctx.shadowBlur = 0;
         saveState();
         closeModal();
-        showToast("Текст добавлен красиво");
+        showToast("Описание добавлено");
     };
 }
 
-// Функция переноса текста по словам
-function wrapText(context, text, x, y, maxWidth, lineHeight) {
+function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
     const words = text.split(' ');
     let line = '';
     for (let n = 0; n < words.length; n++) {
         const testLine = line + words[n] + ' ';
-        const metrics = context.measureText(testLine);
-        const testWidth = metrics.width;
-        if (testWidth > maxWidth && n > 0) {
-            context.fillText(line, x, y);
+        const metrics = ctx.measureText(testLine);
+        if (metrics.width > maxWidth && n > 0) {
+            ctx.fillText(line, x, y);
             line = words[n] + ' ';
             y += lineHeight;
         } else {
             line = testLine;
         }
     }
-    context.fillText(line, x, y);
+    ctx.fillText(line, x, y);
 }
 
 function saveImage() {
@@ -262,7 +291,7 @@ function saveImage() {
         a.download = title + ".jpg";
         a.href = URL.createObjectURL(blob);
         a.click();
-        showToast("Сохранено!");
+        showToast("Сохранено как " + title + ".jpg");
     }, "image/jpeg", 0.94);
 }
 
@@ -270,12 +299,7 @@ function showToast(msg) {
     const t = document.getElementById("toast");
     t.textContent = msg;
     t.style.display = "block";
-    setTimeout(() => t.style.display = "none", 2400);
-}
-
-// Пока заглушка для перетаскивания элементов (следующий шаг)
-function startMoveResize() {
-    showToast("Режим перемещения элементов — скоро добавим");
+    setTimeout(() => t.style.display = "none", 2200);
 }
 </script>
 </body>
