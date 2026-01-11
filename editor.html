@@ -2,54 +2,202 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>Фоторедактор FIX</title>
+<title>Редактор фото</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <style>
-    body { margin:0; overflow:hidden; background:#000; color:#fff; font-family:system-ui, sans-serif; }
-    #canvas { width:100vw; height:100vh; touch-action:none; display:block; }
-    #toolbar { position:fixed; right:12px; top:12px; display:flex; flex-direction:column; gap:10px; z-index:100; }
-    .btn { width:44px; height:44px; background:rgba(40,40,40,0.8); border:1px solid rgba(255,255,255,0.2); border-radius:12px; font-size:24px; display:flex; justify-content:center; align-items:center; cursor:pointer; }
-    input[type=file] { display:none; }
-    #bottomBar { position:fixed; bottom:20px; left:0; width:100%; display:flex; justify-content:center; align-items:center; gap:40px; z-index:90; }
-    .bottom-btn { width:60px; height:60px; background:rgba(40,40,40,0.8); border:2px solid rgba(255,255,255,0.5); border-radius:50%; font-size:28px; display:flex; justify-content:center; align-items:center; }
-    .bottom-btn.small { width:40px; height:40px; font-size:18px; background:rgba(30,30,30,0.6); border:1px solid rgba(255,255,255,0.2); }
-    #modal { position:fixed; inset:0; background:rgba(0,0,0,0.9); display:none; justify-content:center; align-items:center; z-index:200; }
-    #modalBox { width:90%; max-width:380px; background:#1a1a1a; padding:24px; border-radius:16px; border:1px solid #444; }
-    #modalBox input, #modalBox textarea { width:100%; margin:12px 0; padding:12px; border-radius:10px; border:1px solid #555; background:#222; color:#fff; font-size:16px; box-sizing: border-box; }
-    #modalButtons { margin-top:20px; display:flex; gap:12px; }
-    #modalButtons button { flex:1; padding:14px; border-radius:10px; font-size:16px; cursor:pointer; border:none; }
-    #okBtn { background:#0066ff; color:#fff; }
-    #cancelBtn { background:#444; color:#fff; }
-    #toast { position:fixed; bottom:100px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.85); padding:10px 18px; border-radius:20px; font-size:14px; display:none; z-index:150; border: 1px solid #444; }
+    body {
+        margin: 0;
+        overflow: hidden;
+        background: #000;
+        font-family: sans-serif;
+        color: #fff;
+    }
+
+    #canvas {
+        width: 100vw;
+        height: 100vh;
+        touch-action: none;
+        background: #000;
+    }
+
+    /* Правая панель */
+    #toolbar {
+        position: fixed;
+        right: 10px;
+        top: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        z-index: 10;
+    }
+
+    .btn {
+        width: 55px;
+        height: 55px;
+        background: rgba(0,0,0,0.35);
+        border: 1px solid rgba(255,255,255,0.15);
+        border-radius: 12px;
+        font-size: 28px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        cursor: pointer;
+        user-select: none;
+    }
+
+    .btn:active {
+        background: rgba(255,255,255,0.25);
+    }
+
+    input[type=file] {
+        display: none;
+    }
+
+    /* Нижняя панель — строго по центру */
+    #bottomBar {
+        position: fixed;
+        bottom: 15px;
+        left: 0;
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 32px;
+        z-index: 20;
+    }
+
+    .bottom-btn {
+        width: 65px;
+        height: 65px;
+        background: rgba(0,0,0,0.45);
+        border: 1px solid rgba(255,255,255,0.15);
+        border-radius: 50%;
+        font-size: 32px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        user-select: none;
+    }
+
+    .bottom-btn:active {
+        background: rgba(255,255,255,0.25);
+    }
+
+    /* Модальное окно (вариант B, тёмное) */
+    #modal {
+        position: fixed;
+        top: 0; left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0,0,0,0.8);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 50;
+    }
+
+    #modalBox {
+        width: 85%;
+        background: rgba(0,0,0,0.8);
+        padding: 20px;
+        border-radius: 12px;
+        border: 1px solid rgba(255,255,255,0.2);
+    }
+
+    #modalBox label {
+        font-size: 16px;
+    }
+
+    #modalBox input,
+    #modalBox textarea {
+        width: 100%;
+        margin-top: 6px;
+        margin-bottom: 10px;
+        padding: 10px;
+        border-radius: 8px;
+        border: none;
+        font-size: 16px;
+        box-sizing: border-box;
+    }
+
+    #modalButtons {
+        margin-top: 8px;
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+    }
+
+    #modalButtons button {
+        flex: 1;
+        padding: 10px;
+        border-radius: 8px;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+    }
+
+    #modalButtons button:first-child {
+        background: #555;
+        color: #fff;
+    }
+
+    #modalButtons button:last-child {
+        background: #00aaff;
+        color: #fff;
+    }
+
+    /* Тост "Сохранено" */
+    #toast {
+        position: fixed;
+        bottom: 40px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0,0,0,0.8);
+        padding: 12px 20px;
+        border-radius: 10px;
+        font-size: 16px;
+        display: none;
+        z-index: 100;
+    }
 </style>
 </head>
+
 <body>
 
 <canvas id="canvas"></canvas>
 
+<!-- Правая панель -->
 <div id="toolbar">
     <label class="btn">📸<input type="file" accept="image/*" capture="environment" id="cameraInput"></label>
     <label class="btn">🖼<input type="file" accept="image/*" id="galleryInput"></label>
     <div class="btn" onclick="setMode('draw')">✏️</div>
     <div class="btn" onclick="setMode('erase')">🧽</div>
+    <div class="btn" onclick="startCrop()">✂️</div>
     <div class="btn" onclick="addGeo()">📍</div>
     <div class="btn" onclick="openModal()">📝</div>
     <div class="btn" onclick="saveImage()">💾</div>
 </div>
 
+<!-- Нижняя панель -->
 <div id="bottomBar">
-    <div class="bottom-btn small" id="undoBtn">←</div>
-    <div class="bottom-btn" onclick="triggerCamera()">📷</div>
-    <div class="bottom-btn small" id="redoBtn">→</div>
+    <div class="bottom-btn" id="undoBtn">↩️</div>
+    <div class="bottom-btn" onclick="triggerCamera()">📸</div>
+    <div class="bottom-btn" id="redoBtn">↪️</div>
 </div>
 
+<!-- Модальное окно Название + Описание -->
 <div id="modal">
     <div id="modalBox">
-        <input id="titleInput" placeholder="Заголовок">
-        <textarea id="descInput" rows="3" placeholder="Описание"></textarea>
+        <label>Название:</label>
+        <input id="titleInput">
+
+        <label>Описание:</label>
+        <textarea id="descInput" rows="4"></textarea>
+
         <div id="modalButtons">
-            <button id="cancelBtn" onclick="closeModal()">Отмена</button>
-            <button id="okBtn" onclick="applyText()">OK</button>
+            <button onclick="closeModal()">Отмена</button>
+            <button onclick="applyText()">OK</button>
         </div>
     </div>
 </div>
@@ -59,23 +207,34 @@
 <script>
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
-let mode = "draw", drawing = false, lastX, lastY, history = [], redoStack = [];
+
+let mode = "draw";
+let drawing = false;
+let startX = 0;
+let startY = 0;
+
+let history = [];
+let redoStack = [];
 
 function resizeCanvas() {
-    const tempData = canvas.toDataURL();
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    const img = new Image();
-    img.onload = () => ctx.drawImage(img, 0, 0);
-    img.src = tempData;
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const snapshot = canvas.toDataURL();
+    canvas.width = w;
+    canvas.height = h;
+    if (snapshot) {
+        const img = new Image();
+        img.src = snapshot;
+        img.onload = () => {
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        };
+    }
 }
+resizeCanvas();
 window.addEventListener("resize", resizeCanvas);
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
 
-function saveState() {
+function pushHistory() {
     history.push(canvas.toDataURL());
-    if (history.length > 20) history.shift();
     redoStack = [];
 }
 
@@ -83,33 +242,51 @@ function undo() {
     if (history.length > 1) {
         redoStack.push(history.pop());
         const img = new Image();
-        img.onload = () => { ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(img,0,0); };
         img.src = history[history.length - 1];
+        img.onload = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        };
     }
 }
 
 function redo() {
     if (redoStack.length > 0) {
-        const state = redoStack.pop();
-        history.push(state);
+        const data = redoStack.pop();
+        history.push(data);
         const img = new Image();
-        img.onload = () => ctx.drawImage(img, 0, 0);
-        img.src = state;
+        img.src = data;
+        img.onload = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        };
     }
 }
 
 document.getElementById("undoBtn").onclick = undo;
 document.getElementById("redoBtn").onclick = redo;
 
+let undoHoldTimer = null;
+document.getElementById("undoBtn").addEventListener("touchstart", () => {
+    undoHoldTimer = setTimeout(() => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        history = [];
+        redoStack = [];
+    }, 600);
+});
+document.getElementById("undoBtn").addEventListener("touchend", () => {
+    clearTimeout(undoHoldTimer);
+});
+
 function loadImage(file) {
-    if(!file) return;
+    if (!file) return;
     const reader = new FileReader();
     reader.onload = e => {
         const img = new Image();
         img.onload = () => {
-            ctx.clearRect(0,0,canvas.width, canvas.height);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            saveState();
+            pushHistory();
         };
         img.src = e.target.result;
     };
@@ -118,111 +295,9 @@ function loadImage(file) {
 
 document.getElementById("cameraInput").onchange = e => loadImage(e.target.files[0]);
 document.getElementById("galleryInput").onchange = e => loadImage(e.target.files[0]);
-function triggerCamera() { document.getElementById("cameraInput").click(); }
 
-function getPos(e) {
-    const t = e.touches?.[0] || e.changedTouches?.[0] || e;
-    const r = canvas.getBoundingClientRect();
-    return { x: t.clientX - r.left, y: t.clientY - r.top };
+function triggerCamera() {
+    document.getElementById("cameraInput").click();
 }
 
-canvas.addEventListener("touchstart", e => {
-    if (mode === "addGeo") return;
-    e.preventDefault();
-    const pos = getPos(e);
-    drawing = true;
-    lastX = pos.x; lastY = pos.y;
-    ctx.beginPath();
-    ctx.moveTo(lastX, lastY);
-});
-
-canvas.addEventListener("touchmove", e => {
-    if (!drawing) return;
-    e.preventDefault();
-    const pos = getPos(e);
-    if (mode === "draw") {
-        ctx.strokeStyle = "#ff3366"; ctx.lineWidth = 4; ctx.lineCap = "round";
-        ctx.lineTo(pos.x, pos.y); ctx.stroke();
-    } else if (mode === "erase") {
-        ctx.clearRect(pos.x-20, pos.y-20, 40, 40);
-    }
-});
-
-canvas.addEventListener("touchend", () => { 
-    if(drawing) { drawing = false; saveState(); } 
-});
-
-// ГЕОТЕГ ТУТ
-function addGeo() {
-    showToast("Определяю гео...");
-    navigator.geolocation.getCurrentPosition(geo => {
-        const lat = geo.coords.latitude.toFixed(6);
-        const lon = geo.coords.longitude.toFixed(6);
-        const text = `📍 ${lat}, ${lon}`;
-        
-        ctx.font = "12px system-ui";
-        const w = ctx.measureText(text).width;
-        
-        ctx.fillStyle = "rgba(0,0,0,0.5)";
-        ctx.fillRect(10, canvas.height - 30, w + 15, 20);
-        
-        ctx.fillStyle = "#fff";
-        ctx.fillText(text, 15, canvas.height - 15);
-        
-        saveState();
-        showToast("Гео добавлено слева");
-    }, () => showToast("Ошибка GPS"));
-}
-
-function openModal() {
-    document.getElementById("modal").style.display = "flex";
-    document.getElementById("titleInput").value = new Date().toISOString().slice(0,10);
-}
-
-function closeModal() { document.getElementById("modal").style.display = "none"; }
-
-// ТЕКСТ ТУТ
-function applyText() {
-    const title = document.getElementById("titleInput").value.trim();
-    const desc = document.getElementById("descInput").value.trim();
-
-    ctx.font = "12px system-ui";
-    const textWidth = Math.max(ctx.measureText(title).width, ctx.measureText(desc).width);
-    const boxWidth = textWidth + 20;
-    const startX = canvas.width - boxWidth - 10;
-
-    ctx.fillStyle = "rgba(0,0,0,0.5)";
-    ctx.fillRect(startX, 10, boxWidth, 40);
-    
-    ctx.fillStyle = "#fff";
-    ctx.fillText(title, startX + 10, 25);
-    ctx.fillText(desc, startX + 10, 42);
-
-    saveState();
-    closeModal();
-    showToast("Текст добавлен вверху");
-}
-
-function setMode(m) { mode = m; }
-
-function saveImage() {
-    const link = document.createElement("a");
-    link.download = `photo_${Date.now()}.jpg`;
-    link.href = canvas.toDataURL("image/jpeg", 0.9);
-    link.click();
-}
-
-function showToast(msg) {
-    const t = document.getElementById("toast");
-    t.textContent = msg;
-    t.style.display = "block";
-    setTimeout(() => t.style.display = "none", 2000);
-}
-
-// Стартовый фон
-ctx.fillStyle = "#000";
-ctx.fillRect(0,0,canvas.width, canvas.height);
-saveState();
-</script>
-</body>
-</html>₽₽
+function
