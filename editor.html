@@ -2,61 +2,25 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>Фоторедактор</title>
+<title>Фоторедактор FIX</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <style>
     body { margin:0; overflow:hidden; background:#000; color:#fff; font-family:system-ui, sans-serif; }
     #canvas { width:100vw; height:100vh; touch-action:none; display:block; }
-    
-    /* Верхняя панель инструментов */
-    #toolbar {
-        position:fixed; right:12px; top:12px; display:flex; flex-direction:column; gap:10px; z-index:100;
-    }
-    .btn {
-        width:44px; height:44px; background:rgba(40,40,40,0.8); border:1px solid rgba(255,255,255,0.2);
-        border-radius:12px; font-size:24px; display:flex; justify-content:center; align-items:center;
-        cursor:pointer; user-select:none;
-    }
-    .btn:active { background:rgba(80,80,80,0.9); }
-
+    #toolbar { position:fixed; right:12px; top:12px; display:flex; flex-direction:column; gap:10px; z-index:100; }
+    .btn { width:44px; height:44px; background:rgba(40,40,40,0.8); border:1px solid rgba(255,255,255,0.2); border-radius:12px; font-size:24px; display:flex; justify-content:center; align-items:center; cursor:pointer; }
     input[type=file] { display:none; }
-
-    /* Нижняя панель — исправлено расположение стрелок */
-    #bottomBar {
-        position:fixed; bottom:20px; left:0; width:100%; display:flex; justify-content:center; align-items:center; gap:30px; z-index:90;
-    }
-    .bottom-btn {
-        width:60px; height:60px; background:rgba(40,40,40,0.8); border:2px solid rgba(255,255,255,0.5);
-        border-radius:50%; font-size:28px; display:flex; justify-content:center; align-items:center;
-        user-select:none; cursor:pointer;
-    }
-    /* Маленькие стрелки по бокам */
-    .bottom-btn.small {
-        width:40px; height:40px; font-size:18px; background:rgba(30,30,30,0.6); border:1px solid rgba(255,255,255,0.2);
-    }
-
-    /* Модалка */
-    #modal {
-        position:fixed; inset:0; background:rgba(0,0,0,0.9); display:none; justify-content:center; align-items:center; z-index:200;
-    }
-    #modalBox {
-        width:90%; max-width:380px; background:#1a1a1a; padding:24px; border-radius:16px; border:1px solid #444;
-    }
-    #modalBox input, #modalBox textarea {
-        width:100%; margin:12px 0; padding:12px; border-radius:10px; border:1px solid #555;
-        background:#222; color:#fff; font-size:16px; box-sizing: border-box;
-    }
+    #bottomBar { position:fixed; bottom:20px; left:0; width:100%; display:flex; justify-content:center; align-items:center; gap:40px; z-index:90; }
+    .bottom-btn { width:60px; height:60px; background:rgba(40,40,40,0.8); border:2px solid rgba(255,255,255,0.5); border-radius:50%; font-size:28px; display:flex; justify-content:center; align-items:center; }
+    .bottom-btn.small { width:40px; height:40px; font-size:18px; background:rgba(30,30,30,0.6); border:1px solid rgba(255,255,255,0.2); }
+    #modal { position:fixed; inset:0; background:rgba(0,0,0,0.9); display:none; justify-content:center; align-items:center; z-index:200; }
+    #modalBox { width:90%; max-width:380px; background:#1a1a1a; padding:24px; border-radius:16px; border:1px solid #444; }
+    #modalBox input, #modalBox textarea { width:100%; margin:12px 0; padding:12px; border-radius:10px; border:1px solid #555; background:#222; color:#fff; font-size:16px; box-sizing: border-box; }
     #modalButtons { margin-top:20px; display:flex; gap:12px; }
     #modalButtons button { flex:1; padding:14px; border-radius:10px; font-size:16px; cursor:pointer; border:none; }
+    #okBtn { background:#0066ff; color:#fff; }
     #cancelBtn { background:#444; color:#fff; }
-    #okBtn     { background:#0066ff; color:#fff; }
-
-    #toast {
-        position:fixed; bottom:100px; left:50%; transform:translateX(-50%);
-        background:rgba(0,0,0,0.85); padding:10px 18px; border-radius:20px; font-size:14px;
-        display:none; z-index:150; border: 1px solid #444;
-    }
+    #toast { position:fixed; bottom:100px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.85); padding:10px 18px; border-radius:20px; font-size:14px; display:none; z-index:150; border: 1px solid #444; }
 </style>
 </head>
 <body>
@@ -81,13 +45,11 @@
 
 <div id="modal">
     <div id="modalBox">
-        <label>Заголовок</label>
-        <input id="titleInput" placeholder="Название">
-        <label>Описание</label>
-        <textarea id="descInput" rows="3" placeholder="Что на фото?"></textarea>
+        <input id="titleInput" placeholder="Заголовок">
+        <textarea id="descInput" rows="3" placeholder="Описание"></textarea>
         <div id="modalButtons">
             <button id="cancelBtn" onclick="closeModal()">Отмена</button>
-            <button id="okBtn" onclick="applyText()">Готово</button>
+            <button id="okBtn" onclick="applyText()">OK</button>
         </div>
     </div>
 </div>
@@ -97,21 +59,23 @@
 <script>
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
-let mode = "draw";
-let drawing = false;
-let lastX, lastY;
-let history = [];
-let redoStack = [];
+let mode = "draw", drawing = false, lastX, lastY, history = [], redoStack = [];
 
 function resizeCanvas() {
+    const tempData = canvas.toDataURL();
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
+    const img = new Image();
+    img.onload = () => ctx.drawImage(img, 0, 0);
+    img.src = tempData;
 }
-resizeCanvas();
 window.addEventListener("resize", resizeCanvas);
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
 function saveState() {
     history.push(canvas.toDataURL());
+    if (history.length > 20) history.shift();
     redoStack = [];
 }
 
@@ -119,10 +83,7 @@ function undo() {
     if (history.length > 1) {
         redoStack.push(history.pop());
         const img = new Image();
-        img.onload = () => {
-            ctx.clearRect(0,0,canvas.width, canvas.height);
-            ctx.drawImage(img, 0, 0);
-        };
+        img.onload = () => { ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(img,0,0); };
         img.src = history[history.length - 1];
     }
 }
@@ -157,7 +118,6 @@ function loadImage(file) {
 
 document.getElementById("cameraInput").onchange = e => loadImage(e.target.files[0]);
 document.getElementById("galleryInput").onchange = e => loadImage(e.target.files[0]);
-
 function triggerCamera() { document.getElementById("cameraInput").click(); }
 
 function getPos(e) {
@@ -167,19 +127,18 @@ function getPos(e) {
 }
 
 canvas.addEventListener("touchstart", e => {
+    if (mode === "addGeo") return;
     e.preventDefault();
     const pos = getPos(e);
     drawing = true;
     lastX = pos.x; lastY = pos.y;
-    if (mode === "draw" || mode === "erase") {
-        ctx.beginPath();
-        ctx.moveTo(lastX, lastY);
-    }
+    ctx.beginPath();
+    ctx.moveTo(lastX, lastY);
 });
 
 canvas.addEventListener("touchmove", e => {
-    e.preventDefault();
     if (!drawing) return;
+    e.preventDefault();
     const pos = getPos(e);
     if (mode === "draw") {
         ctx.strokeStyle = "#ff3366"; ctx.lineWidth = 4; ctx.lineCap = "round";
@@ -187,74 +146,70 @@ canvas.addEventListener("touchmove", e => {
     } else if (mode === "erase") {
         ctx.clearRect(pos.x-20, pos.y-20, 40, 40);
     }
-    lastX = pos.x; lastY = pos.y;
 });
 
-canvas.addEventListener("touchend", e => {
-    e.preventDefault();
-    if (!drawing) return;
-    drawing = false;
-    if (mode === "draw" || mode === "erase") saveState();
-    if (mode === "addGeo") {
-        navigator.geolocation.getCurrentPosition(geo => {
-            const text = `${geo.coords.latitude.toFixed(6)}, ${geo.coords.longitude.toFixed(6)}`;
-            ctx.font = "14px monospace";
-            const w = ctx.measureText(text).width + 10;
-            
-            // Плашка слева внизу
-            ctx.fillStyle = "rgba(0,0,0,0.6)";
-            ctx.fillRect(10, canvas.height - 35, w + 20, 25);
-            ctx.fillStyle = "#fff";
-            ctx.fillText("📍 " + text, 15, canvas.height - 18);
-            
-            saveState();
-            showToast("Гео добавлено слева");
-        }, () => showToast("Ошибка GPS"));
-        mode = "draw";
-    }
+canvas.addEventListener("touchend", () => { 
+    if(drawing) { drawing = false; saveState(); } 
 });
 
-function setMode(m) { mode = m; }
-
+// ГЕОТЕГ ТУТ
 function addGeo() {
-    setMode("addGeo");
-    showToast("Нажми на экран для метки");
+    showToast("Определяю гео...");
+    navigator.geolocation.getCurrentPosition(geo => {
+        const lat = geo.coords.latitude.toFixed(6);
+        const lon = geo.coords.longitude.toFixed(6);
+        const text = `📍 ${lat}, ${lon}`;
+        
+        ctx.font = "12px system-ui";
+        const w = ctx.measureText(text).width;
+        
+        ctx.fillStyle = "rgba(0,0,0,0.5)";
+        ctx.fillRect(10, canvas.height - 30, w + 15, 20);
+        
+        ctx.fillStyle = "#fff";
+        ctx.fillText(text, 15, canvas.height - 15);
+        
+        saveState();
+        showToast("Гео добавлено слева");
+    }, () => showToast("Ошибка GPS"));
 }
 
 function openModal() {
     document.getElementById("modal").style.display = "flex";
-    const now = new Date();
-    document.getElementById("titleInput").value = now.toISOString().slice(0,10);
+    document.getElementById("titleInput").value = new Date().toISOString().slice(0,10);
 }
 
 function closeModal() { document.getElementById("modal").style.display = "none"; }
 
+// ТЕКСТ ТУТ
 function applyText() {
     const title = document.getElementById("titleInput").value.trim();
     const desc = document.getElementById("descInput").value.trim();
 
-    // Рисуем текст в правой верхней части
+    ctx.font = "12px system-ui";
+    const textWidth = Math.max(ctx.measureText(title).width, ctx.measureText(desc).width);
+    const boxWidth = textWidth + 20;
+    const startX = canvas.width - boxWidth - 10;
+
     ctx.fillStyle = "rgba(0,0,0,0.5)";
-    ctx.fillRect(canvas.width - 210, 70, 200, 80); // Позиция под иконками
+    ctx.fillRect(startX, 10, boxWidth, 40);
     
     ctx.fillStyle = "#fff";
-    ctx.font = "bold 16px sans-serif";
-    ctx.fillText(title, canvas.width - 200, 95);
-    
-    ctx.font = "13px sans-serif";
-    ctx.fillText(desc, canvas.width - 200, 120);
+    ctx.fillText(title, startX + 10, 25);
+    ctx.fillText(desc, startX + 10, 42);
 
     saveState();
     closeModal();
-    showToast("Текст добавлен справа");
+    showToast("Текст добавлен вверху");
 }
+
+function setMode(m) { mode = m; }
 
 function saveImage() {
     const link = document.createElement("a");
-    link.download = "result.jpg";
+    link.download = `photo_${Date.now()}.jpg`;
     link.href = canvas.toDataURL("image/jpeg", 0.9);
     link.click();
-    showToast("Сохранено!");
 }
 
 function showToast(msg) {
@@ -264,10 +219,10 @@ function showToast(msg) {
     setTimeout(() => t.style.display = "none", 2000);
 }
 
-// Инициализация пустого состояния
-ctx.fillStyle = "#111";
+// Стартовый фон
+ctx.fillStyle = "#000";
 ctx.fillRect(0,0,canvas.width, canvas.height);
 saveState();
 </script>
 </body>
-</html>
+</html>₽₽
