@@ -1,301 +1,201 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
-<title>Редактор фото</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <title>Pro Photo Editor</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; color: #fff; }
+        canvas { display: block; touch-action: none; background: #111; }
+        
+        #toolbar { position: fixed; right: 10px; top: 10px; display: flex; flex-direction: column; gap: 12px; z-index: 10; }
+        .btn { width: 50px; height: 50px; background: rgba(40,40,40,0.8); border: 1px solid rgba(255,255,255,0.2); border-radius: 12px; font-size: 24px; display: flex; justify-content: center; align-items: center; cursor: pointer; }
+        
+        #bottomBar { position: fixed; bottom: 20px; left: 0; width: 100%; display: flex; justify-content: center; align-items: center; gap: 40px; z-index: 20; }
+        .bottom-btn { width: 60px; height: 60px; background: rgba(50,50,50,0.9); border: 1px solid rgba(255,255,255,0.3); border-radius: 50%; font-size: 28px; display: flex; justify-content: center; align-items: center; }
 
-<style>
-    body {
-        margin: 0;
-        overflow: hidden;
-        background: #000;
-        font-family: sans-serif;
-        color: #fff;
-    }
-
-    #canvas {
-        width: 100vw;
-        height: 100vh;
-        touch-action: none;
-        background: #000;
-    }
-
-    /* Правая панель */
-    #toolbar {
-        position: fixed;
-        right: 10px;
-        top: 10px;
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        z-index: 10;
-    }
-
-    .btn {
-        width: 55px;
-        height: 55px;
-        background: rgba(0,0,0,0.35);
-        border: 1px solid rgba(255,255,255,0.15);
-        border-radius: 12px;
-        font-size: 28px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        cursor: pointer;
-        user-select: none;
-    }
-
-    .btn:active {
-        background: rgba(255,255,255,0.25);
-    }
-
-    input[type=file] {
-        display: none;
-    }
-
-    /* Нижняя панель — строго по центру */
-    #bottomBar {
-        position: fixed;
-        bottom: 15px;
-        left: 0;
-        width: 100%;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 32px;
-        z-index: 20;
-    }
-
-    .bottom-btn {
-        width: 65px;
-        height: 65px;
-        background: rgba(0,0,0,0.45);
-        border: 1px solid rgba(255,255,255,0.15);
-        border-radius: 50%;
-        font-size: 32px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        user-select: none;
-    }
-
-    .bottom-btn:active {
-        background: rgba(255,255,255,0.25);
-    }
-
-    /* Модальное окно (вариант B, тёмное) */
-    #modal {
-        position: fixed;
-        top: 0; left: 0;
-        width: 100vw;
-        height: 100vh;
-        background: rgba(0,0,0,0.8);
-        display: none;
-        justify-content: center;
-        align-items: center;
-        z-index: 50;
-    }
-
-    #modalBox {
-        width: 85%;
-        background: rgba(0,0,0,0.8);
-        padding: 20px;
-        border-radius: 12px;
-        border: 1px solid rgba(255,255,255,0.2);
-    }
-
-    #modalBox label {
-        font-size: 16px;
-    }
-
-    #modalBox input,
-    #modalBox textarea {
-        width: 100%;
-        margin-top: 6px;
-        margin-bottom: 10px;
-        padding: 10px;
-        border-radius: 8px;
-        border: none;
-        font-size: 16px;
-        box-sizing: border-box;
-    }
-
-    #modalButtons {
-        margin-top: 8px;
-        display: flex;
-        justify-content: space-between;
-        gap: 10px;
-    }
-
-    #modalButtons button {
-        flex: 1;
-        padding: 10px;
-        border-radius: 8px;
-        border: none;
-        font-size: 16px;
-        cursor: pointer;
-    }
-
-    #modalButtons button:first-child {
-        background: #555;
-        color: #fff;
-    }
-
-    #modalButtons button:last-child {
-        background: #00aaff;
-        color: #fff;
-    }
-
-    /* Тост "Сохранено" */
-    #toast {
-        position: fixed;
-        bottom: 40px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: rgba(0,0,0,0.8);
-        padding: 12px 20px;
-        border-radius: 10px;
-        font-size: 16px;
-        display: none;
-        z-index: 100;
-    }
-</style>
+        #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 100; }
+        #modalBox { width: 80%; background: #222; padding: 20px; border-radius: 15px; }
+        input, textarea { width: 100%; margin: 10px 0; padding: 10px; border-radius: 5px; border: none; box-sizing: border-box; }
+        .modal-btns { display: flex; gap: 10px; }
+        .modal-btns button { flex: 1; padding: 10px; border-radius: 5px; border: none; cursor: pointer; }
+        
+        input[type=file] { display: none; }
+    </style>
 </head>
-
 <body>
 
 <canvas id="canvas"></canvas>
 
-<!-- Правая панель -->
 <div id="toolbar">
     <label class="btn">📸<input type="file" accept="image/*" capture="environment" id="cameraInput"></label>
     <label class="btn">🖼<input type="file" accept="image/*" id="galleryInput"></label>
     <div class="btn" onclick="setMode('draw')">✏️</div>
     <div class="btn" onclick="setMode('erase')">🧽</div>
-    <div class="btn" onclick="startCrop()">✂️</div>
     <div class="btn" onclick="addGeo()">📍</div>
     <div class="btn" onclick="openModal()">📝</div>
     <div class="btn" onclick="saveImage()">💾</div>
 </div>
 
-<!-- Нижняя панель -->
 <div id="bottomBar">
-    <div class="bottom-btn" id="undoBtn">↩️</div>
-    <div class="bottom-btn" onclick="triggerCamera()">📸</div>
-    <div class="bottom-btn" id="redoBtn">↪️</div>
+    <div class="bottom-btn" onclick="undo()">↩️</div>
+    <div class="bottom-btn" onclick="triggerCamera()">📷</div>
+    <div class="bottom-btn" onclick="redo()">↪️</div>
 </div>
 
-<!-- Модальное окно Название + Описание -->
 <div id="modal">
     <div id="modalBox">
-        <label>Название:</label>
-        <input id="titleInput">
-
-        <label>Описание:</label>
-        <textarea id="descInput" rows="4"></textarea>
-
-        <div id="modalButtons">
-            <button onclick="closeModal()">Отмена</button>
-            <button onclick="applyText()">OK</button>
+        <h3>Текст на фото</h3>
+        <input id="titleInput" placeholder="Заголовок">
+        <textarea id="descInput" rows="3" placeholder="Описание"></textarea>
+        <div class="modal-btns">
+            <button onclick="closeModal()" style="background:#555; color:#fff">Отмена</button>
+            <button onclick="applyText()" style="background:#00aaff; color:#fff">Готово</button>
         </div>
     </div>
 </div>
 
-<div id="toast"></div>
-
 <script>
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
-let loadedImage = null;
-let mode = "draw";
-let drawing = false;
-let startX = 0;
-let startY = 0;
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    let mode = "draw";
+    let drawing = false;
+    let history = [];
+    let redoStack = [];
 
-let history = [];
-let redoStack = [];
-
-function resizeCanvas() {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-
-    canvas.width = w;
-    canvas.height = h;
-
-    if (loadedImage) {
-        ctx.drawImage(loadedImage, 0, 0, canvas.width, canvas.height);
+    // Настройка размера холста
+    function initCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        ctx.lineWidth = 5;
+        saveState(); // Сохраняем пустой холст как точку старта
     }
-}
-resizeCanvas();
-window.addEventListener("resize", resizeCanvas);
 
-function pushHistory() {
-    history.push(canvas.toDataURL());
-    redoStack = [];
-}
-
-function undo() {
-    if (history.length > 1) {
-        redoStack.push(history.pop());
-        const img = new Image();
-        img.src = history[history.length - 1];
-        img.onload = () => {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        };
-    }
-}
-
-function redo() {
-    if (redoStack.length > 0) {
-        const data = redoStack.pop();
-        history.push(data);
-        const img = new Image();
-        img.src = data;
-        img.onload = () => {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        };
-    }
-}
-
-document.getElementById("undoBtn").onclick = undo;
-document.getElementById("redoBtn").onclick = redo;
-
-let undoHoldTimer = null;
-document.getElementById("undoBtn").addEventListener("touchstart", () => {
-    undoHoldTimer = setTimeout(() => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        history = [];
+    function saveState() {
+        if (history.length > 20) history.shift(); // Ограничим память
+        history.push(canvas.toDataURL());
         redoStack = [];
-    }, 600);
-});
-document.getElementById("undoBtn").addEventListener("touchend", () => {
-    clearTimeout(undoHoldTimer);
-});
+    }
 
-function loadImage(file) {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = e => {
-        const img = new Image();
-        img.onload = () => {
-            loadedImage = img;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            pushHistory();
+    function undo() {
+        if (history.length > 1) {
+            redoStack.push(history.pop());
+            let img = new Image();
+            img.src = history[history.length - 1];
+            img.onload = () => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0);
+            };
+        }
+    }
+
+    function redo() {
+        if (redoStack.length > 0) {
+            let data = redoStack.pop();
+            history.push(data);
+            let img = new Image();
+            img.src = data;
+            img.onload = () => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0);
+            };
+        }
+    }
+
+    // Загрузка фото
+    function handleFile(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+                // Масштабируем картинку под экран
+                const ratio = Math.min(canvas.width / img.width, canvas.height / img.height);
+                const nw = img.width * ratio;
+                const nh = img.height * ratio;
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, (canvas.width - nw) / 2, (canvas.height - nh) / 2, nw, nh);
+                saveState();
+            };
+            img.src = event.target.result;
         };
-        img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
-}
+        reader.readAsDataURL(file);
+    }
 
-document.getElementById("cameraInput").onchange = e => loadImage(e.target.files[0]);
-document.getElementById("galleryInput").onchange = e => loadImage(e.target.files[0]);
+    document.getElementById("cameraInput").onchange = handleFile;
+    document.getElementById("galleryInput").onchange = handleFile;
 
-function triggerCamera() {
-    document.getElementById("cameraInput").click();
-}
+    // Рисование
+    canvas.addEventListener("touchstart", startDraw);
+    canvas.addEventListener("touchmove", draw);
+    canvas.addEventListener("touchend", stopDraw);
 
-function
+    function startDraw(e) {
+        drawing = true;
+        ctx.beginPath();
+        const t = e.touches[0];
+        ctx.moveTo(t.clientX, t.clientY);
+    }
+
+    function draw(e) {
+        if (!drawing) return;
+        const t = e.touches[0];
+        ctx.strokeStyle = mode === "draw" ? "#ff0000" : "#111"; // Красный или ластик
+        ctx.globalCompositeOperation = mode === "draw" ? "source-over" : "destination-out";
+        ctx.lineTo(t.clientX, t.clientY);
+        ctx.stroke();
+    }
+
+    function stopDraw() {
+        if (drawing) saveState();
+        drawing = false;
+    }
+
+    function setMode(m) { mode = m; }
+
+    // Геометка
+    function addGeo() {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(p => {
+                ctx.globalCompositeOperation = "source-over";
+                ctx.fillStyle = "white";
+                ctx.font = "16px Arial";
+                ctx.fillText(`📍 ${p.coords.latitude.toFixed(4)}, ${p.coords.longitude.toFixed(4)}`, 20, canvas.height - 100);
+                saveState();
+            });
+        }
+    }
+
+    // Модалка для текста
+    function openModal() { document.getElementById("modal").style.display = "flex"; }
+    function closeModal() { document.getElementById("modal").style.display = "none"; }
+    
+    function applyText() {
+        const title = document.getElementById("titleInput").value;
+        const desc = document.getElementById("descInput").value;
+        ctx.globalCompositeOperation = "source-over";
+        ctx.fillStyle = "white";
+        ctx.font = "bold 24px Arial";
+        ctx.fillText(title, 20, 50);
+        ctx.font = "16px Arial";
+        ctx.fillText(desc, 20, 80);
+        saveState();
+        closeModal();
+    }
+
+    function saveImage() {
+        const link = document.createElement('a');
+        link.download = 'edited-photo.png';
+        link.href = canvas.toDataURL();
+        link.click();
+    }
+
+    function triggerCamera() { document.getElementById("cameraInput").click(); }
+
+    initCanvas();
+</script>
+</body>
+</html>
