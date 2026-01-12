@@ -207,7 +207,7 @@
 <script>
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
-
+let loadedImage = null;
 let mode = "draw";
 let drawing = false;
 let startX = 0;
@@ -219,15 +219,12 @@ let redoStack = [];
 function resizeCanvas() {
     const w = window.innerWidth;
     const h = window.innerHeight;
-    const snapshot = canvas.toDataURL();
+
     canvas.width = w;
     canvas.height = h;
-    if (snapshot) {
-        const img = new Image();
-        img.src = snapshot;
-        img.onload = () => {
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        };
+
+    if (loadedImage) {
+        ctx.drawImage(loadedImage, 0, 0, canvas.width, canvas.height);
     }
 }
 resizeCanvas();
@@ -284,6 +281,7 @@ function loadImage(file) {
     reader.onload = e => {
         const img = new Image();
         img.onload = () => {
+            loadedImage = img;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
             pushHistory();
