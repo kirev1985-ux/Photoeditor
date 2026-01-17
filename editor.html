@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Photo Report Pro - Drawing Fix</title>
+    <title>Photo Report - Text Memory Fix</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         body { margin: 0; background: #000; font-family: sans-serif; overflow: hidden; touch-action: none; }
@@ -12,13 +12,19 @@
         #toolbar { position: fixed; right: 10px; top: 10px; display: flex; flex-direction: column; gap: 12px; z-index: 10; }
         .btn { width: 55px; height: 55px; background: rgba(40,40,40,0.9); border: 1px solid #555; border-radius: 12px; 
                display: flex; justify-content: center; align-items: center; font-size: 24px; color: white; cursor: pointer; }
+        .btn.active { border-color: #00ff00; background: rgba(0,255,0,0.2); }
+
+        #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); 
+                 display: none; align-items: center; justify-content: center; z-index: 2000; }
+        #modalBox { width: 85%; background: #1a1a1a; padding: 20px; border-radius: 15px; border: 1px solid #444; }
+        input, textarea { width: 100%; margin: 10px 0; padding: 12px; border-radius: 8px; border: 1px solid #444; background: #222; color: #fff; box-sizing: border-box; font-size: 16px; }
 
         #resultOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); 
                          display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
-        #resultImage { max-width: 90%; max-height: 80%; border: 2px solid white; box-shadow: 0 0 20px rgba(255,255,255,0.2); }
-        .info-text { color: white; margin: 15px; text-align: center; font-size: 14px; line-height: 1.4; }
-        .close-save { margin-top: 20px; background: #444; padding: 15px 30px; border-radius: 10px; color: white; border: none; font-size: 16px; }
-
+        #resultImage { max-width: 90%; max-height: 75%; border: 2px solid white; }
+        .info-text { color: white; margin: 15px; text-align: center; font-size: 14px; }
+        .ui-btn { padding: 12px 20px; border-radius: 8px; border: none; font-size: 16px; cursor: pointer; }
+        
         input[type=file] { display: none; }
     </style>
 </head>
@@ -30,116 +36,94 @@
 
 <div id="toolbar">
     <label class="btn">📸<input type="file" accept="image/*" capture="environment" onchange="loadFile(this)"></label>
+    <div class="btn" id="textBtn" onclick="openModal()">📝</div>
     <div class="btn" onclick="addGeo()">📍</div>
     <div class="btn" onclick="showSaveScreen()">💾</div>
     <div class="btn" onclick="location.reload()">🔄</div>
 </div>
 
-<div id="resultOverlay" id="overlay">
-    <p class="info-text"><b>ФОТО ГОТОВО!</b><br>Зажми пальцем на изображении ниже<br>и выбери <b>"Сохранить"</b> или <b>"Скачать"</b></p>
+<div id="modal">
+    <div id="modalBox">
+        <h3 style="color:white; margin-top:0;">Описание объекта</h3>
+        <input id="titleInput" placeholder="Заголовок (например: Опора 12)">
+        <textarea id="descInput" rows="3" placeholder="Описание работ..."></textarea>
+        <div style="display:flex; gap:10px;">
+            <button class="ui-btn" style="flex:1; background:#444; color:white;" onclick="closeModal()">ОТМЕНА</button>
+            <button class="ui-btn" style="flex:1; background:#007bff; color:white;" onclick="applyText()">ОК</button>
+        </div>
+    </div>
+</div>
+
+<div id="resultOverlay">
+    <p class="info-text"><b>ФОТО ГОТОВО!</b><br>Зажми пальцем на фото и выбери <b>"Сохранить"</b></p>
     <img id="resultImage" src="">
-    <button class="close-save" onclick="document.getElementById('resultOverlay').style.display='none'">ВЕРНУТЬСЯ</button>
+    <button class="ui-btn" style="margin-top:20px; background:#444; color:white;" onclick="document.getElementById('resultOverlay').style.display='none'">ВЕРНУТЬСЯ</button>
 </div>
 
 <script>
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
     let isDrawing = false;
-    let lastX = 0;
-    let lastY = 0;
-    
-    // Настройка холста (вертикально 9:16)
+    let lastX = 0, lastY = 0;
+
+    // Загрузка данных из памяти
+    let textData = JSON.parse(localStorage.getItem('saved_report_text')) || { title: "", desc: "" };
+
     function setupCanvas() {
         const w = window.innerWidth * 0.95;
         const h = w * (16/9);
-        canvas.width = w * 2; 
-        canvas.height = h * 2;
-        canvas.style.width = w + "px";
-        canvas.style.height = h + "px";
+        canvas.width = w * 2; canvas.height = h * 2;
+        canvas.style.width = w + "px"; canvas.style.height = h + "px";
         ctx.scale(2, 2);
-        ctx.fillStyle = "#1a1a1a";
-        ctx.fillRect(0, 0, w, h);
-        
-        // Настройки линии
-        ctx.strokeStyle = "red";
-        ctx.lineWidth = 4;
-        ctx.lineJoin = "round";
-        ctx.lineCap = "round";
+        ctx.fillStyle = "#1a1a1a"; ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = "red"; ctx.lineWidth = 4; ctx.lineJoin = "round"; ctx.lineCap = "round";
     }
 
     function loadFile(input) {
         if (!input.files[0]) return;
         const img = new Image();
         img.onload = () => {
-            const cw = canvas.width / 2;
-            const ch = canvas.height / 2;
+            const cw = canvas.width / 2, ch = canvas.height / 2;
             ctx.clearRect(0, 0, cw, ch);
             const ratio = Math.max(cw / img.width, ch / img.height);
             ctx.drawImage(img, (cw - img.width * ratio) / 2, (ch - img.height * ratio) / 2, img.width * ratio, img.height * ratio);
+            // Сразу наносим текст, если он был сохранен
+            if(textData.title || textData.desc) drawTextBlock();
         };
         img.src = URL.createObjectURL(input.files[0]);
     }
 
+    function openModal() {
+        document.getElementById("titleInput").value = textData.title;
+        document.getElementById("descInput").value = textData.desc;
+        document.getElementById("modal").style.display = "flex";
+    }
+
+    function closeModal() { document.getElementById("modal").style.display = "none"; }
+
+    function applyText() {
+        textData.title = document.getElementById("titleInput").value;
+        textData.desc = document.getElementById("descInput").value;
+        localStorage.setItem('saved_report_text', JSON.stringify(textData));
+        drawTextBlock();
+        closeModal();
+    }
+
+    function drawTextBlock() {
+        const cw = canvas.width / 2;
+        ctx.fillStyle = "rgba(0,0,0,0.6)";
+        ctx.fillRect(10, 15, cw - 20, 60);
+        ctx.fillStyle = "white";
+        ctx.font = "bold 15px Arial"; ctx.fillText(textData.title, 20, 38);
+        ctx.font = "13px Arial"; ctx.fillText(textData.desc, 20, 58);
+    }
+
     function addGeo() {
         navigator.geolocation.getCurrentPosition((p) => {
-            const lat = p.coords.latitude.toFixed(6);
-            const lon = p.coords.longitude.toFixed(6);
+            const lat = p.coords.latitude.toFixed(6), lon = p.coords.longitude.toFixed(6);
             const time = new Date().toLocaleTimeString();
-            const cw = canvas.width / 2;
-            const ch = canvas.height / 2;
-            
-            ctx.fillStyle = "rgba(0,0,0,0.6)";
-            ctx.fillRect(10, ch - 65, cw - 20, 55);
+            const cw = canvas.width / 2, ch = canvas.height / 2;
+            ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(10, ch - 65, cw - 20, 55);
             ctx.fillStyle = "white";
-            ctx.font = "bold 15px Arial";
-            ctx.fillText(`📍 ${lat}, ${lon}`, 20, ch - 42);
-            ctx.font = "13px Arial";
-            ctx.fillText(`${time} (±${p.coords.accuracy.toFixed(0)}m)`, 20, ch - 22);
-        }, () => alert("Включи GPS!"), { enableHighAccuracy: true });
-    }
-
-    function showSaveScreen() {
-        const dataUrl = canvas.toDataURL("image/png");
-        document.getElementById("resultImage").src = dataUrl;
-        document.getElementById("resultOverlay").style.display = "flex";
-    }
-
-    // ЛОГИКА ПЛАВНОГО РИСОВАНИЯ
-    function getCoords(e) {
-        const r = canvas.getBoundingClientRect();
-        const touch = e.touches[0];
-        return {
-            x: (touch.clientX - r.left) * (canvas.width / r.width / 2),
-            y: (touch.clientY - r.top) * (canvas.height / r.height / 2)
-        };
-    }
-
-    canvas.addEventListener('touchstart', (e) => {
-        isDrawing = true;
-        const coords = getCoords(e);
-        lastX = coords.x;
-        lastY = coords.y;
-    });
-
-    canvas.addEventListener('touchmove', (e) => {
-        if (!isDrawing) return;
-        e.preventDefault();
-        const coords = getCoords(e);
-        
-        ctx.beginPath();
-        ctx.moveTo(lastX, lastY);
-        ctx.lineTo(coords.x, coords.y);
-        ctx.stroke();
-        
-        lastX = coords.x;
-        lastY = coords.y;
-    });
-
-    canvas.addEventListener('touchend', () => {
-        isDrawing = false;
-    });
-
-    window.onload = setupCanvas;
-</script>
-</body>
-</html>
+            ctx.font = "bold 14px Arial"; ctx.fillText(`📍 ${lat}, ${lon}`, 20, ch - 42);
+            ctx.font = "12px Arial"; ctx.
