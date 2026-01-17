@@ -2,22 +2,19 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Photo Report Ultra Fix</title>
+    <title>Photo Report v5 STABLE</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; color: white; }
         #viewport { width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; overflow: hidden; touch-action: none; }
-        canvas { background: #111; touch-action: none; display: block; image-rendering: -webkit-optimize-contrast; }
-        
+        canvas { background: #111; touch-action: none; display: block; }
         #toolbar { position: fixed; right: 10px; top: 10px; display: flex; flex-direction: column; gap: 10px; z-index: 100; }
         .btn { width: 52px; height: 52px; background: rgba(30,30,30,0.9); border: 1px solid rgba(255,255,255,0.2); border-radius: 12px; font-size: 24px; display: flex; justify-content: center; align-items: center; cursor: pointer; }
-        .btn.active { border: 2px solid #00ff00; background: rgba(0,255,0,0.2); box-shadow: 0 0 10px #00ff00; }
-
+        .btn.active { border: 2px solid #00ff00; background: rgba(0,255,0,0.2); }
         #bottomBar { position: fixed; bottom: 20px; left: 0; width: 100%; display: flex; justify-content: center; align-items: center; gap: 30px; z-index: 100; }
         .bottom-btn { width: 62px; height: 62px; background: rgba(40,40,40,0.9); border: 1px solid rgba(255,255,255,0.2); border-radius: 50%; font-size: 28px; display: flex; justify-content: center; align-items: center; }
-
         #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; justify-content: center; align-items: center; z-index: 200; }
-        #modalBox { width: 85%; background: #1a1a1a; padding: 20px; border-radius: 15px; border: 1px solid #333; }
+        #modalBox { width: 85%; background: #1a1a1a; padding: 20px; border-radius: 15px; }
         input, textarea { width: 100%; margin: 10px 0; padding: 12px; border-radius: 8px; border: 1px solid #444; background: #222; color: #fff; box-sizing: border-box; font-size: 16px; }
         input[type=file] { display: none; }
     </style>
@@ -46,23 +43,25 @@
 
 <div id="modal">
     <div id="modalBox">
-        <h4 style="margin:0">Текст отчета</h4>
+        <h4 style="margin:0">Текст</h4>
         <input id="titleInput" placeholder="Заголовок">
         <textarea id="descInput" rows="3" placeholder="Описание"></textarea>
         <div style="display:flex; gap:10px; margin-top:10px;">
-            <button onclick="closeModal()" style="flex:1; padding:12px; background:#444; color:#fff; border:none; border-radius:8px;">Отмена</button>
-            <button onclick="applyText()" style="flex:1; padding:12px; background:#007bff; color:#fff; border:none; border-radius:8px;">Готово</button>
+            <button onclick="closeModal()" style="flex:1; padding:12px; background:#444;">Отмена</button>
+            <button onclick="applyText()" style="flex:1; padding:12px; background:#007bff;">ОК</button>
         </div>
     </div>
 </div>
 
 <script>
     const canvas = document.getElementById("canvas");
-    const ctx = canvas.getContext("2d", { willReadFrequently: true });
-    let currentMode = 'view';
-    let history = [], redoStack = [];
+    const ctx = canvas.getContext("2d");
+    let currentMode = 'view', history = [], redoStack = [];
     let sticky = { geo: false, text: false };
-    let textBuffer = { title: "", desc: "" };
+    
+    // Загрузка сохраненного текста
+    let textBuffer = JSON.parse(localStorage.getItem('photo_text')) || { title: "", desc: "" };
+    
     let scale = 1, posX = 0, posY = 0, lastPosX = 0, lastPosY = 0;
 
     function initCanvas() {
@@ -99,11 +98,8 @@
             ctx.clearRect(0, 0, cw, ch);
             const ratio = Math.max(cw / img.width, ch / img.height);
             ctx.drawImage(img, (cw - img.width * ratio) / 2, (ch - img.height * ratio) / 2, img.width * ratio, img.height * ratio);
-            
-            // Наносим данные сразу, если кнопки зажаты
-            if (sticky.text && textBuffer.title) drawDataBlock(textBuffer.title, textBuffer.desc, 'top');
+            if (sticky.text && textBuffer.title) drawDataBlock(textBuffer.title, textBuffer.desc, 'top', false);
             if (sticky.geo) fetchGeo();
-            
             saveState(); resetZoom();
         };
         img.src = URL.createObjectURL(file);
@@ -111,43 +107,37 @@
 
     function fetchGeo() {
         if (!navigator.geolocation) return;
+        // maximumAge: 0 заставляет GPS искать заново, а не брать кэш
         navigator.geolocation.getCurrentPosition(async (p) => {
             const lat = p.coords.latitude, lon = p.coords.longitude;
             const line1 = "📍 " + lat.toFixed(6) + ", " + lon.toFixed(6) + " (±" + p.coords.accuracy.toFixed(0) + "м)";
-            
-            // Сначала рисуем только координаты
-            drawDataBlock(line1, "Получение адреса...", 'bottom');
-
+            drawDataBlock(line1, "Определяю адрес...", 'bottom', true);
             try {
-                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`, { priority: 'high' });
-                const d = await response.json();
-                const addr = (d.address.city || d.address.town || d.address.village || "") + ", " + (d.address.road || "") + " " + (d.address.house_number || "");
-                
-                // Вместо Undo просто рисуем поверх финальный блок
-                drawDataBlock(line1, addr, 'bottom');
-            } catch (e) {
-                console.log("Geo error");
-            }
-        }, null, { enableHighAccuracy: true, timeout: 5000 });
+                const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+                const d = await r.json();
+                const addr = (d.address.city || d.address.town || "") + ", " + (d.address.road || "") + " " + (d.address.house_number || "");
+                drawDataBlock(line1, addr, 'bottom', true);
+            } catch (e) { console.log("Geo error"); }
+        }, null, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
     }
 
     function applyText() {
         textBuffer.title = document.getElementById("titleInput").value;
         textBuffer.desc = document.getElementById("descInput").value;
-        drawDataBlock(textBuffer.title, textBuffer.desc, 'top');
+        localStorage.setItem('photo_text', JSON.stringify(textBuffer));
+        drawDataBlock(textBuffer.title, textBuffer.desc, 'top', true);
         closeModal();
     }
 
-    function drawDataBlock(t1, t2, pos) {
+    function drawDataBlock(t1, t2, pos, shouldSave) {
         const cw = canvas.width / 2, ch = canvas.height / 2;
         const y = (pos === 'top') ? 20 : ch - 85;
         ctx.globalCompositeOperation = "source-over";
-        ctx.fillStyle = "rgba(0,0,0,0.6)"; 
-        ctx.fillRect(10, y, cw - 20, 65);
+        ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(10, y, cw - 20, 65);
         ctx.fillStyle = "white"; 
         ctx.font = "bold 14px Arial"; ctx.fillText(t1, 20, y + 26);
         ctx.font = "12px Arial"; ctx.fillText(t2, 20, y + 50);
-        saveState();
+        if (shouldSave) saveState();
     }
 
     function saveState() { 
@@ -159,25 +149,32 @@
     function safeUndo() { 
         if (history.length > 1) { 
             redoStack.push(history.pop()); 
-            loadImg(history[history.length - 1]); 
+            const img = new Image();
+            img.onload = () => { ctx.clearRect(0,0,canvas.width/2,canvas.height/2); ctx.drawImage(img,0,0,canvas.width/2,canvas.height/2); };
+            img.src = history[history.length - 1];
         } 
     }
 
-    function safeRedo() { 
-        if (redoStack.length > 0) { 
-            const d = redoStack.pop(); history.push(d); loadImg(d); 
-        } 
+    function saveImage() {
+        resetZoom();
+        setTimeout(() => {
+            canvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.style.display = "none";
+                a.href = url;
+                a.download = `REPORT_${Date.now()}.png`;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 100);
+            }, "image/png");
+        }, 400);
     }
 
-    function loadImg(s) { 
-        const i = new Image(); 
-        i.onload = () => { 
-            ctx.clearRect(0,0,canvas.width/2,canvas.height/2); 
-            ctx.drawImage(i,0,0,canvas.width/2,canvas.height/2); 
-        }; 
-        i.src = s; 
-    }
-
+    // Обработка касаний (зум и рисование)
     const vp = document.getElementById("viewport");
     vp.addEventListener('touchstart', e => {
         if (currentMode !== 'view' && e.touches.length === 1) {
@@ -186,7 +183,6 @@
         }
         lastPosX = e.touches[0].clientX - posX; lastPosY = e.touches[0].clientY - posY;
     });
-
     vp.addEventListener('touchmove', e => {
         if (currentMode !== 'view') {
             ctx.globalCompositeOperation = (currentMode === 'erase') ? "destination-out" : "source-over";
@@ -198,21 +194,7 @@
             canvas.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`;
         }
     });
-
     vp.addEventListener('touchend', () => { if(currentMode !== 'view') saveState(); });
-
-    function saveImage() {
-        resetZoom();
-        setTimeout(() => {
-            const dataUrl = canvas.toDataURL("image/png");
-            const link = document.createElement("a");
-            link.href = dataUrl;
-            link.download = `REPORT_${Date.now()}.png`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }, 400);
-    }
 
     function resetZoom() { scale = 1; posX = 0; posY = 0; canvas.style.transform = "none"; }
     function openModal() { 
