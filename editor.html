@@ -2,19 +2,19 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Photo Report Final Fix</title>
+    <title>Photo Report Pro</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; color: white; }
         #viewport { width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; overflow: hidden; touch-action: none; }
-        canvas { background: #111; touch-action: none; display: block; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        canvas { background: #111; touch-action: none; display: block; }
         
         #toolbar { position: fixed; right: 10px; top: 10px; display: flex; flex-direction: column; gap: 10px; z-index: 100; }
-        .btn { width: 52px; height: 52px; background: rgba(30,30,30,0.9); border: 1px solid rgba(255,255,255,0.2); border-radius: 12px; font-size: 24px; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: 0.2s; }
+        .btn { width: 50px; height: 50px; background: rgba(30,30,30,0.9); border: 1px solid rgba(255,255,255,0.2); border-radius: 12px; font-size: 24px; display: flex; justify-content: center; align-items: center; cursor: pointer; }
         .btn.active { border: 2px solid #00ff00; background: rgba(0,255,0,0.15); transform: scale(0.9); }
 
         #bottomBar { position: fixed; bottom: 20px; left: 0; width: 100%; display: flex; justify-content: center; align-items: center; gap: 30px; z-index: 100; }
-        .bottom-btn { width: 62px; height: 62px; background: rgba(40,40,40,0.9); border: 1px solid rgba(255,255,255,0.2); border-radius: 50%; font-size: 28px; display: flex; justify-content: center; align-items: center; }
+        .bottom-btn { width: 60px; height: 60px; background: rgba(40,40,40,0.9); border: 1px solid rgba(255,255,255,0.2); border-radius: 50%; font-size: 28px; display: flex; justify-content: center; align-items: center; }
 
         #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; justify-content: center; align-items: center; z-index: 200; }
         #modalBox { width: 85%; background: #1a1a1a; padding: 20px; border-radius: 15px; }
@@ -46,7 +46,7 @@
 
 <div id="modal">
     <div id="modalBox">
-        <h4 style="margin:0">Настройки текста</h4>
+        <h4 style="margin:0">Текст</h4>
         <input id="titleInput" placeholder="Заголовок">
         <textarea id="descInput" rows="3" placeholder="Описание"></textarea>
         <div style="display:flex; gap:10px; margin-top:10px;">
@@ -63,84 +63,61 @@
     let history = [], redoStack = [];
     let sticky = { geo: false, text: false };
     let textBuffer = { title: "", desc: "" };
-    
     let scale = 1, posX = 0, posY = 0, lastPosX = 0, lastPosY = 0;
 
     function initCanvas() {
         const w = window.innerWidth * 0.95;
         const h = w * (16/9);
-        const dpr = 2;
-        canvas.width = w * dpr;
-        canvas.height = h * dpr;
-        canvas.style.width = w + "px";
-        canvas.style.height = h + "px";
-        ctx.scale(dpr, dpr);
+        canvas.width = w * 2; canvas.height = h * 2;
+        canvas.style.width = w + "px"; canvas.style.height = h + "px";
+        ctx.scale(2, 2);
         ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.lineWidth = 3;
-        ctx.fillStyle = "#1a1a1a";
-        ctx.fillRect(0, 0, w, h);
+        ctx.fillStyle = "#1a1a1a"; ctx.fillRect(0, 0, w, h);
         saveState();
     }
 
     function toggleMode(mode) {
         document.getElementById("drawBtn").classList.remove("active");
         document.getElementById("eraseBtn").classList.remove("active");
-        if (currentMode === mode) { currentMode = 'view'; } 
-        else { currentMode = mode; document.getElementById(mode + "Btn").classList.add("active"); }
+        currentMode = (currentMode === mode) ? 'view' : mode;
+        if (currentMode !== 'view') document.getElementById(mode + "Btn").classList.add("active");
     }
 
     function toggleSticky(type) {
         sticky[type] = !sticky[type];
         document.getElementById(type + "Btn").classList.toggle("active", sticky[type]);
-        if (type === 'text' && sticky.text) { openModal(); }
-        if (type === 'geo' && sticky.geo) { fetchGeo(); }
+        if (type === 'text' && sticky.text) openModal();
+        if (type === 'geo' && sticky.geo) fetchGeo();
     }
 
     function handleFile(e) {
         const file = e.target.files[0];
         if (!file) return;
-        const url = URL.createObjectURL(file);
         const img = new Image();
         img.onload = () => {
-            const cw = canvas.width / 2;
-            const ch = canvas.height / 2;
+            const cw = canvas.width / 2; const ch = canvas.height / 2;
             ctx.clearRect(0, 0, cw, ch);
             const ratio = Math.max(cw / img.width, ch / img.height);
-            const nw = img.width * ratio;
-            const nh = img.height * ratio;
-            ctx.drawImage(img, (cw - nw) / 2, (ch - nh) / 2, nw, nh);
-            
+            ctx.drawImage(img, (cw - img.width * ratio) / 2, (ch - img.height * ratio) / 2, img.width * ratio, img.height * ratio);
             if (sticky.text && textBuffer.title) drawDataBlock(textBuffer.title, textBuffer.desc, 'top');
             if (sticky.geo) fetchGeo();
-            
-            saveState();
-            resetZoom();
-            URL.revokeObjectURL(url);
+            saveState(); resetZoom();
         };
-        img.src = url;
+        img.src = URL.createObjectURL(file);
     }
 
-    async function fetchGeo() {
-        if (!navigator.geolocation) return;
-        
+    function fetchGeo() {
         navigator.geolocation.getCurrentPosition(async (p) => {
-            const lat = p.coords.latitude;
-            const lon = p.coords.longitude;
-            const acc = p.coords.accuracy;
-            const line1 = `📍 ${lat.toFixed(6)}, ${lon.toFixed(6)} (±${acc.toFixed(0)}м)`;
-            
-            drawDataBlock(line1, "Определяю адрес...", 'bottom');
-
+            const lat = p.coords.latitude, lon = p.coords.longitude;
+            const line1 = "📍 " + lat.toFixed(6) + ", " + lon.toFixed(6) + " (±" + p.coords.accuracy.toFixed(0) + "м)";
+            drawDataBlock(line1, "Загрузка адреса...", 'bottom');
             try {
-                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1`);
-                const data = await res.json();
-                const addr = `${data.address.city || data.address.town || ''}, ${data.address.road || ''} ${data.address.house_number || ''}`;
-                
-                safeUndo(); // Стираем блок "Определяю адрес"
-                drawDataBlock(line1, addr, 'bottom');
-            } catch (e) {
-                console.warn("Адрес не подгружен");
-            }
-        }, null, { enableHighAccuracy: true, timeout: 5000 });
+                const r = await fetch("https://nominatim.openstreetmap.org/reverse?format=json&lat="+lat+"&lon="+lon);
+                const d = await r.json();
+                const addr = (d.address.city || d.address.town || "") + ", " + (d.address.road || "") + " " + (d.address.house_number || "");
+                safeUndo(); drawDataBlock(line1, addr, 'bottom');
+            } catch (e) { console.log("Geo error"); }
+        }, null, { enableHighAccuracy: true });
     }
 
     function applyText() {
@@ -151,104 +128,58 @@
     }
 
     function drawDataBlock(t1, t2, pos) {
-        const cw = canvas.width / 2;
-        const ch = canvas.height / 2;
+        const cw = canvas.width / 2, ch = canvas.height / 2;
         const y = (pos === 'top') ? 20 : ch - 85;
-        
         ctx.globalCompositeOperation = "source-over";
-        ctx.fillStyle = "rgba(0,0,0,0.55)";
-        ctx.fillRect(10, y, cw - 20, 65);
-        
-        ctx.fillStyle = "white";
-        ctx.font = "bold 14px Arial";
-        ctx.fillText(t1, 20, y + 26);
-        ctx.font = "12px Arial";
-        ctx.fillText(t2, 20, y + 50);
+        ctx.fillStyle = "rgba(0,0,0,0.55)"; ctx.fillRect(10, y, cw - 20, 65);
+        ctx.fillStyle = "white"; ctx.font = "bold 14px Arial"; ctx.fillText(t1, 20, y + 26);
+        ctx.font = "12px Arial"; ctx.fillText(t2, 20, y + 50);
         saveState();
     }
 
-    function saveState() {
-        history.push(canvas.toDataURL("image/png"));
-        if (history.length > 30) history.shift();
-        redoStack = [];
-    }
-
-    function safeUndo() {
-        if (history.length > 1) {
-            redoStack.push(history.pop());
-            renderFromHistory(history[history.length - 1]);
-        }
-    }
-
-    function safeRedo() {
-        if (redoStack.length > 0) {
-            const data = redoStack.pop();
-            history.push(data);
-            renderFromHistory(data);
-        }
-    }
-
-    function renderFromHistory(src) {
-        const img = new Image();
-        img.onload = () => {
-            ctx.clearRect(0, 0, canvas.width/2, canvas.height/2);
-            ctx.drawImage(img, 0, 0, canvas.width/2, canvas.height/2);
-        };
-        img.src = src;
-    }
+    function saveState() { history.push(canvas.toDataURL()); if (history.length > 20) history.shift(); redoStack = []; }
+    function safeUndo() { if (history.length > 1) { redoStack.push(history.pop()); loadImg(history[history.length - 1]); } }
+    function safeRedo() { if (redoStack.length > 0) { const d = redoStack.pop(); history.push(d); loadImg(d); } }
+    function loadImg(s) { const i = new Image(); i.onload = () => { ctx.clearRect(0,0,canvas.width/2,canvas.height/2); ctx.drawImage(i,0,0,canvas.width/2,canvas.height/2); }; i.src = s; }
 
     const vp = document.getElementById("viewport");
     vp.addEventListener('touchstart', e => {
         if (currentMode !== 'view' && e.touches.length === 1) {
-            ctx.beginPath();
-            const r = canvas.getBoundingClientRect();
-            const x = (e.touches[0].clientX - r.left) * (canvas.width / r.width / 2);
-            const y = (e.touches[0].clientY - r.top) * (canvas.height / r.height / 2);
-            ctx.moveTo(x, y);
+            ctx.beginPath(); const r = canvas.getBoundingClientRect();
+            ctx.moveTo((e.touches[0].clientX - r.left) * (canvas.width/r.width/2), (e.touches[0].clientY - r.top) * (canvas.height/r.height/2));
         }
         lastPosX = e.touches[0].clientX - posX; lastPosY = e.touches[0].clientY - posY;
     });
-
     vp.addEventListener('touchmove', e => {
         if (currentMode !== 'view') {
             ctx.globalCompositeOperation = (currentMode === 'erase') ? "destination-out" : "source-over";
-            ctx.strokeStyle = "red";
-            const r = canvas.getBoundingClientRect();
-            const x = (e.touches[0].clientX - r.left) * (canvas.width / r.width / 2);
-            const y = (e.touches[0].clientY - r.top) * (canvas.height / r.height / 2);
-            ctx.lineTo(x, y); ctx.stroke();
+            ctx.strokeStyle = "red"; const r = canvas.getBoundingClientRect();
+            ctx.lineTo((e.touches[0].clientX - r.left) * (canvas.width/r.width/2), (e.touches[0].clientY - r.top) * (canvas.height/r.height/2));
+            ctx.stroke();
         } else {
-            posX = e.touches[0].clientX - lastPosX;
-            posY = e.touches[0].clientY - lastPosY;
-            canvas.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`;
+            posX = e.touches[0].clientX - lastPosX; posY = e.touches[0].clientY - lastPosY;
+            canvas.style.transform = "translate("+posX+"px, "+posY+"px) scale("+scale+")";
         }
     });
-
     vp.addEventListener('touchend', () => { if(currentMode !== 'view') saveState(); });
 
     function saveImage() {
         resetZoom();
         setTimeout(() => {
-            try {
-                const link = document.createElement('a');
-                link.download = `IMG_${Date.now()}.png`;
-                link.href = canvas.toDataURL("image/png", 1.0);
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            } catch (err) {
-                alert("Ошибка сохранения. Попробуйте еще раз.");
-            }
-        }, 500);
+            canvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url; a.download = "REPORT.png"; a.click();
+                URL.revokeObjectURL(url);
+            }, "image/png");
+        }, 300);
     }
-
     function resetZoom() { scale = 1; posX = 0; posY = 0; canvas.style.transform = "none"; }
     function openModal() { document.getElementById("titleInput").value = textBuffer.title; document.getElementById("descInput").value = textBuffer.desc; document.getElementById("modal").style.display = "flex"; }
     function closeModal() { document.getElementById("modal").style.display = "none"; }
     function triggerCamera() { document.getElementById("cameraInput").click(); }
     document.getElementById("cameraInput").onchange = handleFile;
     document.getElementById("galleryInput").onchange = handleFile;
-
     window.onload = initCanvas;
 </script>
 </body>
