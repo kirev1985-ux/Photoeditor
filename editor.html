@@ -2,8 +2,9 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Photo Report - Stable Build</title>
+    <title>Photo Report Offline</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="manifest" href="manifest.json">
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; color: white; touch-action: none; }
         #viewport { width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
@@ -16,20 +17,17 @@
         #bottomBar { position: fixed; bottom: 20px; left: 0; width: 100%; display: flex; justify-content: center; gap: 30px; z-index: 100; }
         .bottom-btn { width: 62px; height: 62px; background: rgba(40,40,40,0.9); border: 1px solid #555; border-radius: 50%; font-size: 28px; display: flex; justify-content: center; align-items: center; }
 
-        #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; justify-content: center; align-items: center; z-index: 2000; }
-        #modalBox { width: 85%; background: #1a1a1a; padding: 20px; border-radius: 15px; }
+        #modal, #geoModal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; justify-content: center; align-items: center; z-index: 2000; }
+        .modalBox { width: 85%; background: #1a1a1a; padding: 20px; border-radius: 15px; border: 1px solid #444; }
         input, textarea { width: 100%; margin: 10px 0; padding: 12px; border-radius: 8px; border: 1px solid #444; background: #222; color: #fff; box-sizing: border-box; font-size: 16px; }
 
         #resultOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 3000; }
         #resultImage { max-width: 90%; max-height: 75%; border: 2px solid white; }
-        .info-save { color: white; text-align: center; margin: 15px; font-size: 14px; }
     </style>
 </head>
 <body>
 
-<div id="viewport">
-    <canvas id="canvas"></canvas>
-</div>
+<div id="viewport"><canvas id="canvas"></canvas></div>
 
 <div id="toolbar">
     <label class="btn">📸<input type="file" accept="image/*" capture="environment" onchange="loadFile(this)"></label>
@@ -44,21 +42,30 @@
     <div class="bottom-btn" onclick="location.reload()">🔄</div>
 </div>
 
-<div id="modal">
-    <div id="modalBox">
+<div id="modal" class="modal">
+    <div class="modalBox">
         <input id="titleInput" placeholder="Заголовок">
         <textarea id="descInput" rows="3" placeholder="Описание"></textarea>
+        <button style="width:100%; padding:12px; background:#007bff; color:white; border:none; border-radius:8px;" onclick="applyText()">ОК</button>
+    </div>
+</div>
+
+<div id="geoModal" class="modal">
+    <div class="modalBox">
+        <h4>GPS не найден</h4>
+        <p style="font-size:12px; color:#aaa;">Вставь координаты из maps.me или введи вручную:</p>
+        <input id="manualGeoInput" placeholder="Например: 55.123, 37.456">
         <div style="display:flex; gap:10px;">
-            <button style="flex:1; padding:12px;" onclick="closeModal()">Отмена</button>
-            <button style="flex:1; padding:12px; background:#007bff; color:white; border:none; border-radius:8px;" onclick="applyText()">ОК</button>
+            <button style="flex:1; padding:10px;" onclick="closeGeoModal()">Отмена</button>
+            <button style="flex:1; padding:10px; background:#28a745; color:white; border:none; border-radius:8px;" onclick="applyManualGeo()">ОК</button>
         </div>
     </div>
 </div>
 
 <div id="resultOverlay" onclick="this.style.display='none'">
-    <p class="info-save">ЗАЖМИ ПАЛЬЦЕМ НА ФОТО <br> И ВЫБЕРИ <b>"СОХРАНИТЬ"</b></p>
-    <img id="resultImage" src="">
-    <button style="margin-top:20px; padding:10px 30px; border-radius:8px;">ВЕРНУТЬСЯ</button>
+    <p style="text-align:center">ЗАЖМИ ПАЛЬЦЕМ ДЛЯ СОХРАНЕНИЯ</p>
+    <img id="resultImage">
+    <button style="margin-top:20px; padding:10px 30px;">ВЕРНУТЬСЯ</button>
 </div>
 
 <script>
@@ -66,7 +73,10 @@
     const ctx = canvas.getContext("2d");
     let history = [], isDrawing = false, drawMode = false;
     let lastX = 0, lastY = 0;
+    
+    // Постоянная память
     let textData = JSON.parse(localStorage.getItem('rep_text')) || { title: "", desc: "" };
+    let lastGeo = localStorage.getItem('last_geo') || "";
 
     function init() {
         const w = window.innerWidth * 0.95;
@@ -77,6 +87,11 @@
         ctx.fillStyle = "#1a1a1a"; ctx.fillRect(0,0,w,h);
         ctx.strokeStyle = "red"; ctx.lineWidth = 4; ctx.lineJoin = "round"; ctx.lineCap = "round";
         saveState();
+        
+        // Регистрация оффлайна (Service Worker)
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(()=>{});
+        }
     }
 
     function loadFile(input) {
@@ -103,7 +118,7 @@
         textData.desc = document.getElementById("descInput").value;
         localStorage.setItem('rep_text', JSON.stringify(textData));
         drawText();
-        closeModal();
+        document.getElementById("modal").style.display = "none";
     }
 
     function drawText() {
@@ -111,21 +126,43 @@
         ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(10, 20, cw-20, 60);
         ctx.fillStyle = "white"; ctx.font = "bold 15px Arial";
         ctx.fillText(textData.title, 20, 42); ctx.font = "13px Arial"; ctx.fillText(textData.desc, 20, 62);
+    }
+
+    // ЛОГИКА ГЕОЛОКАЦИИ
+    function addGeo() {
+        navigator.geolocation.getCurrentPosition((p) => {
+            // Если GPS сработал
+            const coords = `${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}`;
+            renderGeo(coords, p.coords.accuracy.toFixed(0));
+        }, () => {
+            // Если GPS НЕ сработал (глушилки или оффлайн)
+            document.getElementById("manualGeoInput").value = lastGeo;
+            document.getElementById("geoModal").style.display = "flex";
+        }, { enableHighAccuracy: true, timeout: 5000 });
+    }
+
+    function applyManualGeo() {
+        const val = document.getElementById("manualGeoInput").value;
+        if(val) {
+            lastGeo = val;
+            localStorage.setItem('last_geo', val);
+            renderGeo(val, "Manual");
+        }
+        closeGeoModal();
+    }
+
+    function renderGeo(coords, acc) {
+        const cw = canvas.width/2, ch = canvas.height/2;
+        ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(10, ch-65, cw-20, 55);
+        ctx.fillStyle = "white"; ctx.font = "bold 14px Arial";
+        ctx.fillText(`📍 ${coords}`, 20, ch-42);
+        ctx.font = "12px Arial"; ctx.fillText(`${new Date().toLocaleString()} (±${acc}m)`, 20, ch-22);
         saveState();
     }
 
-    function addGeo() {
-        navigator.geolocation.getCurrentPosition((p) => {
-            const lat = p.coords.latitude.toFixed(6), lon = p.coords.longitude.toFixed(6);
-            const cw = canvas.width/2, ch = canvas.height/2;
-            ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(10, ch-65, cw-20, 55);
-            ctx.fillStyle = "white"; ctx.font = "bold 14px Arial";
-            ctx.fillText(`📍 ${lat}, ${lon}`, 20, ch-42);
-            ctx.font = "12px Arial"; ctx.fillText(`${new Date().toLocaleString()} (±${p.coords.accuracy.toFixed(0)}m)`, 20, ch-22);
-            saveState();
-        }, () => alert("GPS Off"), { enableHighAccuracy: true });
-    }
-
+    function closeGeoModal() { document.getElementById("geoModal").style.display = "none"; }
+    function openModal() { document.getElementById("titleInput").value = textData.title; document.getElementById("descInput").value = textData.desc; document.getElementById("modal").style.display = "flex"; }
+    
     function showSaveScreen() {
         document.getElementById("resultImage").src = canvas.toDataURL("image/png");
         document.getElementById("resultOverlay").style.display = "flex";
@@ -140,6 +177,7 @@
         }
     }
 
+    // Плавное рисование
     canvas.addEventListener('touchstart', (e) => {
         if(!drawMode) return;
         isDrawing = true; const r = canvas.getBoundingClientRect();
@@ -156,8 +194,6 @@
     });
     canvas.addEventListener('touchend', () => { if(isDrawing) { isDrawing = false; saveState(); } });
 
-    function openModal() { document.getElementById("titleInput").value = textData.title; document.getElementById("descInput").value = textData.desc; document.getElementById("modal").style.display = "flex"; }
-    function closeModal() { document.getElementById("modal").style.display = "none"; }
     window.onload = init;
 </script>
 </body>
