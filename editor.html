@@ -2,23 +2,25 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Photo Editor V4</title>
+    <title>Photo Editor V7 (ISO Selection)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         body { margin: 0; background: #000; font-family: sans-serif; overflow: hidden; color: white; touch-action: none; }
         canvas { display: block; background: #111; margin: 0 auto; }
-        
-        /* Правое меню */
         #side-menu { position: fixed; right: 10px; top: 20px; display: flex; flex-direction: column; gap: 12px; z-index: 10; }
         .btn-side { width: 52px; height: 52px; background: #333; border: 1px solid #555; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; }
-
-        /* Нижнее меню */
         #bottom-menu { position: fixed; bottom: 30px; width: 100%; display: flex; justify-content: center; align-items: center; gap: 30px; z-index: 10; }
-        .btn-cam { width: 80px; height: 80px; background: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40px; border: 5px solid #444; }
+        .btn-cam { width: 80px; height: 80px; background: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40px; border: 5px solid #444; color: #000; }
         .btn-round { width: 55px; height: 55px; background: #444; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; }
-
-        #save-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
-        #save-img { max-width: 90%; max-height: 80%; border: 1px solid #fff; }
+        
+        /* Экраны выбора и сохранения */
+        #modal-iso, #save-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
+        .iso-box { width: 80%; display: flex; flex-direction: column; gap: 20px; }
+        .iso-btn { padding: 20px; border-radius: 15px; font-size: 20px; font-weight: bold; text-align: center; cursor: pointer; border: 3px solid transparent; }
+        .red-iso { background: #600; border-color: red; color: white; }
+        .yellow-iso { background: #660; border-color: yellow; color: white; }
+        
+        #save-img { max-width: 90%; max-height: 70%; border: 1px solid #fff; }
     </style>
 </head>
 <body>
@@ -27,8 +29,8 @@
 
 <div id="side-menu">
     <div class="btn-side" onclick="addGPS()">📍</div>
-    <div class="btn-side" onclick="addNote()">📝</div>
-    <div class="btn-side" onclick="openSave()">💾</div>
+    <div class="btn-side" onclick="updateNote()">📝</div>
+    <div class="btn-side" onclick="showIsoMenu()">💾</div>
 </div>
 
 <div id="bottom-menu">
@@ -37,18 +39,28 @@
     <div class="btn-round" onclick="location.reload()">🔄</div>
 </div>
 
+<div id="modal-iso">
+    <h3>ВЫБЕРИТЕ ТИП:</h3>
+    <div class="iso-box">
+        <div class="iso-btn red-iso" onclick="finalizeSave('КРАСНАЯ ИЗО', 'red')">КРАСНАЯ ИЗО</div>
+        <div class="iso-btn yellow-iso" onclick="finalizeSave('ЖЕЛТАЯ ИЗО', 'yellow')">ЖЕЛТАЯ ИЗО</div>
+        <div style="text-align:center; color:#888;" onclick="document.getElementById('modal-iso').style.display='none'">Отмена</div>
+    </div>
+</div>
+
 <input type="file" id="hiddenInput" accept="image/*" capture="environment" style="display:none" onchange="loadPhoto(this)">
 
 <div id="save-screen" onclick="this.style.display='none'">
-    <p style="margin-bottom:10px;">ЗАЖМИ ФОТО ДЛЯ СОХРАНЕНИЯ</p>
+    <p>ЗАЖМИ ДЛЯ СОХРАНЕНИЯ</p>
     <img id="save-img">
-    <button style="margin-top:20px; padding:12px 30px; border-radius:8px;">НАЗАД</button>
+    <button style="margin-top:20px; padding:12px 30px;">НАЗАД</button>
 </div>
 
 <script>
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     let history = [], drawing = false, lastX = 0, lastY = 0;
+    let currentNote = "";
 
     function init() {
         canvas.width = window.innerWidth;
@@ -56,6 +68,19 @@
         ctx.fillStyle = '#000';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         saveStep();
+    }
+
+    function drawNoteOnCanvas() {
+        if (!currentNote) return;
+        const barHeight = 40;
+        const yPos = canvas.height - 85; 
+        ctx.fillStyle = "rgba(0,0,0,0.6)";
+        ctx.fillRect(0, yPos, canvas.width, barHeight);
+        ctx.fillStyle = "white";
+        ctx.font = "16px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText(currentNote, canvas.width / 2, yPos + 25);
+        ctx.textAlign = "start";
     }
 
     function loadPhoto(input) {
@@ -67,6 +92,7 @@
                 const ratio = Math.min(canvas.width / img.width, canvas.height / img.height);
                 ctx.clearRect(0,0, canvas.width, canvas.height);
                 ctx.drawImage(img, (canvas.width - img.width*ratio)/2, (canvas.height - img.height*ratio)/2, img.width*ratio, img.height*ratio);
+                drawNoteOnCanvas();
                 saveStep();
             };
             img.src = e.target.result;
@@ -74,42 +100,63 @@
         reader.readAsDataURL(input.files[0]);
     }
 
-    // Рисование (всегда включено)
     canvas.addEventListener('touchstart', e => {
         drawing = true;
-        lastX = e.touches[0].clientX; 
-        lastY = e.touches[0].clientY;
+        lastX = e.touches[0].clientX; lastY = e.touches[0].clientY;
     });
     canvas.addEventListener('touchmove', e => {
         if (!drawing) return;
         e.preventDefault();
         ctx.strokeStyle = "red"; ctx.lineWidth = 4; ctx.lineCap = "round";
         ctx.beginPath(); ctx.moveTo(lastX, lastY); 
-        ctx.lineTo(e.touches[0].clientX, e.touches[0].clientY); 
-        ctx.stroke();
+        ctx.lineTo(e.touches[0].clientX, e.touches[0].clientY); ctx.stroke();
         lastX = e.touches[0].clientX; lastY = e.touches[0].clientY;
     });
     canvas.addEventListener('touchend', () => { drawing = false; saveStep(); });
 
     function addGPS() {
         navigator.geolocation.getCurrentPosition(p => {
-            const text = `${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}`;
-            ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(10, 10, 180, 35);
-            ctx.fillStyle = "white"; ctx.font = "16px Arial"; ctx.fillText("📍 " + text, 20, 33);
+            const accuracy = p.coords.accuracy.toFixed(0);
+            const text = `📍 ${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)} (±${accuracy}м)`;
+            const barHeight = 40;
+            const yPosition = canvas.height - barHeight;
+            ctx.fillStyle = "rgba(0,0,0,0.6)";
+            ctx.fillRect(0, yPosition, canvas.width, barHeight);
+            ctx.fillStyle = "white";
+            ctx.font = "16px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText(text, canvas.width / 2, yPosition + 25);
+            ctx.textAlign = "start";
             saveStep();
-        }, () => alert("Ошибка GPS. Проверь настройки!"));
+        }, () => alert("GPS Error"));
     }
 
-    function addNote() {
-        const n = prompt("Введите описание:");
-        if (n) {
-            ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(10, 50, canvas.width-20, 40);
-            ctx.fillStyle = "white"; ctx.font = "14px Arial"; ctx.fillText(n, 20, 75);
-            saveStep();
-        }
+    function updateNote() {
+        const n = prompt("Описание:", currentNote);
+        if (n !== null) { currentNote = n; drawNoteOnCanvas(); saveStep(); }
     }
 
-    function openSave() {
+    // Новые функции для выбора ИЗО
+    function showIsoMenu() {
+        document.getElementById('modal-iso').style.display = 'flex';
+    }
+
+    function finalizeSave(label, color) {
+        // Рисуем рамку и текст в верхний левый угол
+        ctx.fillStyle = "rgba(0,0,0,0.7)";
+        ctx.fillRect(10, 10, 150, 35);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3;
+        ctx.strokeRect(10, 10, 150, 35);
+        
+        ctx.fillStyle = color;
+        ctx.font = "bold 14px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText(label, 85, 33);
+        ctx.textAlign = "start";
+
+        // Закрываем меню и открываем сохранение
+        document.getElementById('modal-iso').style.display = 'none';
         document.getElementById('save-img').src = canvas.toDataURL("image/png");
         document.getElementById('save-screen').style.display = 'flex';
     }
