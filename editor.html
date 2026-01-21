@@ -2,55 +2,61 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>Редактор Foximbox</title>
+<title>Foximbox Editor PRO</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <style>
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     body { margin:0; overflow:hidden; background:#000; color:#fff; font-family:system-ui, sans-serif; }
     
     #canvas { width:100vw; height:100vh; touch-action:none; display:block; }
-    
-    /* Индикация активной кнопки */
-    .active-tool { border: 2px solid #00ff00 !important; box-shadow: 0 0 10px #00ff00; }
 
-    #toolbar { position:fixed; right:12px; top:12px; display:flex; flex-direction:column; gap:12px; z-index:100; }
-    .btn { 
-        width:48px; height:48px; background:rgba(30,30,30,0.9); 
-        border:1px solid rgba(255,255,255,0.2); border-radius:12px; 
-        font-size:24px; display:flex; justify-content:center; align-items:center; cursor:pointer; 
+    /* Верхняя статус-панель GPS */
+    #statusLine {
+        position: fixed; top: 0; left: 0; width: 100%; height: 4px; 
+        background: red; z-index: 200; transition: 0.3s;
+    }
+    #topInfo {
+        position: fixed; top: 10px; left: 10px; z-index: 150;
+        font-size: 14px; font-weight: bold; text-shadow: 1px 1px 2px #000;
     }
 
-    #bottomBar { position:fixed; bottom:25px; left:0; width:100%; display:flex; justify-content:center; align-items:center; gap:30px; z-index:90; }
-    .bottom-btn { width:65px; height:65px; background:rgba(30,30,30,0.9); border:2px solid #fff; border-radius:50%; font-size:30px; display:flex; justify-content:center; align-items:center; }
-    .bottom-btn.small { width:45px; height:45px; font-size:20px; border:1px solid #aaa; }
+    /* Правая панель (как на скрине) */
+    #toolbar { 
+        position:fixed; right:12px; top:50%; transform: translateY(-50%);
+        display:flex; flex-direction:column; gap:12px; z-index:100; 
+    }
+    .btn { 
+        width:48px; height:48px; background:rgba(30,30,30,0.8); 
+        border:1px solid rgba(255,255,255,0.3); border-radius:12px; 
+        font-size:24px; display:flex; justify-content:center; align-items:center; cursor:pointer; 
+    }
+    .active-tool { border: 2px solid #00ff00 !important; box-shadow: 0 0 8px #00ff00; }
 
-    /* Экран выбора опций */
+    /* Нижняя панель */
+    #bottomBar { position:fixed; bottom:25px; left:0; width:100%; display:flex; justify-content:center; align-items:center; gap:35px; z-index:90; }
+    .bottom-btn { width:65px; height:65px; background:rgba(30,30,30,0.8); border:2px solid #fff; border-radius:50%; font-size:30px; display:flex; justify-content:center; align-items:center; }
+    .bottom-btn.small { width:45px; height:45px; font-size:20px; border:1px solid #aaa; }
+    input[type=file] { display:none; }
+
+    /* Меню выбора */
     #saveMenu { 
         position:fixed; inset:0; background:rgba(0,0,0,0.95); 
         display:none; flex-direction:column; justify-content:center; align-items:center; z-index:300; padding:20px;
     }
-    .menu-section { width:100%; max-width:300px; margin-bottom:25px; text-align:center; }
-    .menu-grid { display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-top:10px; }
-    .opt-btn { padding:15px; border-radius:10px; border:1px solid #444; background:#222; color:#fff; font-weight:bold; cursor:pointer; }
-    .opt-btn.red { border-color: red; color: red; }
-    .opt-btn.yellow { border-color: yellow; color: yellow; }
-
-    #botBtn { 
-        margin-top:30px; background:#0088cc; color:#fff; padding:15px 30px; 
-        border-radius:30px; text-decoration:none; font-weight:bold; display:flex; align-items:center; gap:10px;
-    }
-
-    #toast { position:fixed; bottom:120px; left:50%; transform:translateX(-50%); background:#fff; color:#000; padding:8px 20px; border-radius:20px; display:none; z-index:400; font-weight:bold; }
+    .opt-btn { width: 100%; max-width: 250px; padding:15px; margin: 5px; border-radius:10px; border:1px solid #444; background:#222; color:#fff; font-weight:bold; }
+    
+    #toast { position:fixed; bottom:120px; left:50%; transform:translateX(-50%); background:#fff; color:#000; padding:8px 20px; border-radius:20px; display:none; z-index:400; font-size: 12px; }
 </style>
 </head>
 <body>
+
+<div id="statusLine"></div>
+<div id="topInfo"></div>
 
 <canvas id="canvas"></canvas>
 
 <div id="toolbar">
     <label class="btn" for="galleryInput">🖼</label>
-    <input type="file" accept="image/*" id="galleryInput" onchange="loadImage(this.files[0])">
-    
     <div class="btn tool" id="btn-draw" onclick="setMode('draw')">✏️</div>
     <div class="btn tool" id="btn-hand" onclick="setMode('hand')">✋</div>
     <div class="btn tool" id="btn-erase" onclick="setMode('erase')">🧽</div>
@@ -61,30 +67,25 @@
 <div id="bottomBar">
     <div class="bottom-btn small" onclick="undo()">↩️</div>
     <label class="bottom-btn" for="cameraInput">📷</label>
-    <input type="file" accept="image/*" capture="environment" id="cameraInput" onchange="loadImage(this.files[0])">
     <div class="bottom-btn small" onclick="redo()">↪️</div>
 </div>
 
+<input type="file" accept="image/*" id="galleryInput" onchange="loadImage(this.files[0])">
+<input type="file" accept="image/*" capture="environment" id="cameraInput" onchange="loadImage(this.files[0])">
+
 <div id="saveMenu">
-    <h3>Настройка метки</h3>
-    <div class="menu-section">
-        <div>Цвет изо.</div>
-        <div class="menu-grid">
-            <div class="opt-btn red" onclick="setOption('color', 'Красная')">Красная</div>
-            <div class="opt-btn yellow" onclick="setOption('color', 'Желтая')">Желтая</div>
-        </div>
+    <h3 style="color:#00ff00">Цвет и Тип</h3>
+    <div style="display:flex; gap:10px; margin-bottom:20px;">
+        <button class="opt-btn" style="color:red; border-color:red" onclick="setOpt('color','Красная')">Красная</button>
+        <button class="opt-btn" style="color:yellow; border-color:yellow" onclick="setOpt('color','Желтая')">Желтая</button>
     </div>
-    <div class="menu-section">
-        <div>Тип</div>
-        <div class="menu-grid">
-            <div class="opt-btn" onclick="setOption('type', 'Тайник')">Тайник</div>
-            <div class="opt-btn" onclick="setOption('type', 'Магнит')">Магнит</div>
-        </div>
+    <div style="display:flex; gap:10px; margin-bottom:30px;">
+        <button class="opt-btn" onclick="setOpt('type','Тайник')">Тайник</button>
+        <button class="opt-btn" onclick="setOpt('type','Магнит')">Магнит</button>
     </div>
-    <button class="opt-btn" style="width:200px; background:#007bff;" onclick="applyOptions()">Применить и Сохранить</button>
-    
-    <a href="https://t.me/Foximboxf_bot" id="botBtn" target="_blank">📤 Отправить в бот</a>
-    <button onclick="closeSaveMenu()" style="margin-top:20px; background:none; border:none; color:#888;">Закрыть</button>
+    <button class="opt-btn" style="background:#007bff; border:none" onclick="applyAndSave()">Сохранить фото</button>
+    <a href="https://t.me/Foximboxf_bot" style="margin-top:20px; color:#0088cc; text-decoration:none; font-weight:bold">Foximbox Bot 📥</a>
+    <button onclick="closeSaveMenu()" style="margin-top:20px; background:none; border:none; color:#666">Назад</button>
 </div>
 
 <div id="toast"></div>
@@ -92,14 +93,10 @@
 <script>
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
+let mode = "draw", imgObj = null, history = [], redoStack = [];
+let scale = 1, offX = 0, offY = 0;
+let selColor = "", selType = "";
 
-let mode = "draw";
-let imgObj = null;
-let scale = 1, offsetX = 0, offsetY = 0;
-let history = [], redoStack = [];
-let currentOptions = { color: '', type: '' };
-
-// Инициализация
 function init() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
@@ -107,6 +104,7 @@ function init() {
     ctx.fillRect(0,0,canvas.width, canvas.height);
     setMode('draw');
     saveState();
+    trackGPS();
 }
 window.addEventListener('resize', init);
 init();
@@ -114,8 +112,15 @@ init();
 function setMode(m) {
     mode = m;
     document.querySelectorAll('.tool').forEach(b => b.classList.remove('active-tool'));
-    document.getElementById('btn-' + m).classList.add('active-tool');
-    showToast(m === 'hand' ? "Режим: Рука (Зум)" : (m === 'draw' ? "Режим: Рисование" : "Режим: Ластик"));
+    if(document.getElementById('btn-' + m)) document.getElementById('btn-' + m).classList.add('active-tool');
+}
+
+function trackGPS() {
+    navigator.geolocation.watchPosition(geo => {
+        const acc = geo.coords.accuracy;
+        const bar = document.getElementById('statusLine');
+        bar.style.background = acc <= 15 ? "#00ff00" : "red";
+    }, null, {enableHighAccuracy: true});
 }
 
 function loadImage(file) {
@@ -124,9 +129,9 @@ function loadImage(file) {
     reader.onload = e => {
         imgObj = new Image();
         imgObj.onload = () => {
-            scale = Math.min(canvas.width / imgObj.width, canvas.height / imgObj.height);
-            offsetX = (canvas.width - imgObj.width * scale) / 2;
-            offsetY = (canvas.height - imgObj.height * scale) / 2;
+            scale = Math.min(canvas.width/imgObj.width, canvas.height/imgObj.height);
+            offX = (canvas.width - imgObj.width*scale)/2;
+            offY = (canvas.height - imgObj.height*scale)/2;
             render();
             saveState();
         };
@@ -136,97 +141,15 @@ function loadImage(file) {
 }
 
 function render() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = "#000";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    if(imgObj) {
-        ctx.drawImage(imgObj, offsetX, offsetY, imgObj.width * scale, imgObj.height * scale);
-    }
-}
-
-// Управление касаниями (Зум и Рисование)
-let startX, startY, startDist;
-canvas.addEventListener('touchstart', e => {
-    const pos = getPos(e);
-    if(mode === 'hand') {
-        startX = pos.x - offsetX;
-        startY = pos.y - offsetY;
-        if(e.touches.length === 2) {
-            startDist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
-        }
-    } else {
-        ctx.beginPath();
-        ctx.moveTo(pos.x, pos.y);
-    }
-});
-
-canvas.addEventListener('touchmove', e => {
-    e.preventDefault();
-    const pos = getPos(e);
-    if(mode === 'hand') {
-        if(e.touches.length === 1) {
-            offsetX = pos.x - startX;
-            offsetY = pos.y - startY;
-        } else if(e.touches.length === 2) {
-            let dist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
-            let zoom = dist / startDist;
-            scale *= zoom;
-            startDist = dist;
-        }
-        render();
-    } else {
-        if(mode === 'draw') {
-            ctx.strokeStyle = "#ff3366"; ctx.lineWidth = 4; ctx.lineCap = "round";
-            ctx.lineTo(pos.x, pos.y); ctx.stroke();
-        } else if(mode === 'erase') {
-            ctx.clearRect(pos.x-20, pos.y-20, 40, 40);
-        }
-    }
-});
-
-canvas.addEventListener('touchend', () => { if(mode !== 'hand') saveState(); });
-
-function getPos(e) {
-    const t = e.touches[0] || e.changedTouches[0];
-    return { x: t.clientX, y: t.clientY };
-}
-
-// Гео и Опции
-function addGeo() {
-    navigator.geolocation.getCurrentPosition(geo => {
-        const text = `📍 ${geo.coords.latitude.toFixed(6)}, ${geo.coords.longitude.toFixed(6)} ±${Math.round(geo.coords.accuracy)}м`;
-        ctx.font = "12px sans-serif";
-        ctx.fillStyle = "white";
-        ctx.fillText(text, 15, canvas.height - 20);
-        saveState();
-    });
-}
-
-function openSaveMenu() { document.getElementById('saveMenu').style.display = 'flex'; }
-function closeSaveMenu() { document.getElementById('saveMenu').style.display = 'none'; }
-
-function setOption(key, val) {
-    currentOptions[key] = val;
-    showToast(val);
-}
-
-function applyOptions() {
-    ctx.font = "bold 14px sans-serif";
-    ctx.fillStyle = currentOptions.color === 'Красная' ? 'red' : 'yellow';
-    ctx.fillText(`${currentOptions.color} | ${currentOptions.type}`, canvas.width - 180, 30);
-    saveState();
-    
-    // Авто-скачивание
-    const link = document.createElement('a');
-    link.download = 'fox_photo.jpg';
-    link.href = canvas.toDataURL("image/jpeg", 0.9);
-    link.click();
-    closeSaveMenu();
+    ctx.fillRect(0,0,canvas.width, canvas.height);
+    if(imgObj) ctx.drawImage(imgObj, offX, offY, imgObj.width*scale, imgObj.height*scale);
 }
 
 function saveState() {
     history.push(canvas.toDataURL());
-    if(history.length > 10) history.shift();
+    if(history.length > 15) history.shift();
+    redoStack = [];
 }
 
 function undo() {
@@ -236,6 +159,77 @@ function undo() {
         img.onload = () => { ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(img,0,0); };
         img.src = history[history.length-1];
     }
+}
+
+function redo() {
+    if(redoStack.length > 0) {
+        const s = redoStack.pop(); history.push(s);
+        let img = new Image();
+        img.onload = () => ctx.drawImage(img,0,0);
+        img.src = s;
+    }
+}
+
+// Рисование и Зум
+let startX, startY, startDist;
+canvas.addEventListener('touchstart', e => {
+    const t = e.touches[0];
+    if(mode === 'hand') {
+        startX = t.clientX - offX; startY = t.clientY - offY;
+        if(e.touches.length === 2) startDist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+    } else {
+        ctx.beginPath(); ctx.moveTo(t.clientX, t.clientY);
+    }
+});
+
+canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    const t = e.touches[0];
+    if(mode === 'hand') {
+        if(e.touches.length === 1) { offX = t.clientX - startX; offY = t.clientY - startY; render(); }
+        else if(e.touches.length === 2) {
+            let d = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+            scale *= (d / startDist); startDist = d; render();
+        }
+    } else {
+        if(mode === 'draw') { ctx.strokeStyle = "#ff3366"; ctx.lineWidth = 4; ctx.lineCap="round"; ctx.lineTo(t.clientX, t.clientY); ctx.stroke(); }
+        else if(mode === 'erase') { ctx.clearRect(t.clientX-20, t.clientY-20, 40, 40); }
+    }
+});
+
+canvas.addEventListener('touchend', () => { if(mode !== 'hand') saveState(); });
+
+function addGeo() {
+    navigator.geolocation.getCurrentPosition(geo => {
+        const lat = geo.coords.latitude.toFixed(6);
+        const lon = geo.coords.longitude.toFixed(6);
+        const acc = Math.round(geo.coords.accuracy);
+        const text = `📍 ${lat}, ${lon} (${acc}м)`;
+        ctx.font = "14px system-ui"; ctx.fillStyle = "white";
+        ctx.shadowBlur = 4; ctx.shadowColor = "black";
+        ctx.fillText(text, 15, canvas.height - 20);
+        saveState();
+        showToast("Координаты добавлены");
+    });
+}
+
+function openSaveMenu() { document.getElementById('saveMenu').style.display = 'flex'; }
+function closeSaveMenu() { document.getElementById('saveMenu').style.display = 'none'; }
+function setOpt(k, v) { if(k==='color') selColor = v; else selType = v; showToast(v); }
+
+function applyAndSave() {
+    const info = `${selColor} | ${selType}`;
+    document.getElementById('topInfo').innerText = info;
+    ctx.font = "bold 14px system-ui";
+    ctx.fillStyle = selColor === 'Красная' ? 'red' : 'yellow';
+    ctx.fillText(info, 15, 30);
+    saveState();
+    
+    const link = document.createElement('a');
+    link.download = 'fox_photo.jpg';
+    link.href = canvas.toDataURL("image/jpeg", 0.95);
+    link.click();
+    closeSaveMenu();
 }
 
 function showToast(m) {
