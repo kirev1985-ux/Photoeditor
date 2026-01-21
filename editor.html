@@ -2,52 +2,37 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>Foximbox Editor ULTIMATE</title>
+<title>Foximbox Editor FIXED</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <style>
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     body { margin:0; overflow:hidden; background:#000; color:#fff; font-family:system-ui, sans-serif; }
     #canvas { width:100vw; height:100vh; touch-action:none; display:block; }
 
-    /* Полоса GPS сверху */
     #statusLine {
-        position: fixed; top: 0; left: 0; width: 100%; height: 24px; 
-        background: red; z-index: 200; transition: 0.3s;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 11px; font-weight: bold; color: white; overflow: hidden;
+        position: fixed; top: 0; left: 0; width: 100%; height: 26px; 
+        background: red; z-index: 200; display: flex; align-items: center; 
+        justify-content: center; font-size: 12px; font-weight: bold; color: white;
     }
 
-    #toolbar { 
-        position:fixed; right:12px; top:50%; transform: translateY(-50%);
-        display:flex; flex-direction:column; gap:12px; z-index:100; 
-    }
-    .btn { 
-        width:48px; height:48px; background:rgba(30,30,30,0.85); 
-        border:1px solid rgba(255,255,255,0.3); border-radius:12px; 
-        font-size:24px; display:flex; justify-content:center; align-items:center; cursor:pointer; 
-    }
+    #toolbar { position:fixed; right:12px; top:50%; transform: translateY(-50%); display:flex; flex-direction:column; gap:12px; z-index:100; }
+    .btn { width:50px; height:50px; background:rgba(30,30,30,0.9); border:1px solid rgba(255,255,255,0.3); border-radius:12px; font-size:24px; display:flex; justify-content:center; align-items:center; }
     .active-tool { border: 2px solid #00ff00 !important; box-shadow: 0 0 10px #00ff00; }
 
     #bottomBar { position:fixed; bottom:25px; left:0; width:100%; display:flex; justify-content:center; align-items:center; gap:35px; z-index:90; }
-    .bottom-btn { width:65px; height:65px; background:rgba(30,30,30,0.85); border:2px solid #fff; border-radius:50%; font-size:30px; display:flex; justify-content:center; align-items:center; }
-    .bottom-btn.small { width:45px; height:45px; font-size:20px; border:1px solid #aaa; }
+    .bottom-btn { width:65px; height:65px; background:rgba(30,30,30,0.9); border:2px solid #fff; border-radius:50%; font-size:30px; display:flex; justify-content:center; align-items:center; }
+    
+    .modal { position:fixed; inset:0; background:rgba(0,0,0,0.95); display:none; flex-direction:column; justify-content:center; align-items:center; z-index:300; padding:20px; }
+    textarea { width: 100%; max-width: 300px; background: #111; color: #fff; border: 1px solid #444; padding: 12px; border-radius: 10px; margin-bottom: 15px; font-size: 16px; }
+    .opt-btn { width: 100%; max-width: 250px; padding:15px; margin: 5px; border-radius:10px; border:none; background:#222; color:#fff; font-weight:bold; }
+
     input[type=file] { display:none; }
-
-    /* Модалки */
-    .modal { 
-        position:fixed; inset:0; background:rgba(0,0,0,0.95); 
-        display:none; flex-direction:column; justify-content:center; align-items:center; z-index:300; padding:20px;
-    }
-    .opt-btn { width: 100%; max-width: 250px; padding:15px; margin: 5px; border-radius:10px; border:1px solid #444; background:#222; color:#fff; font-weight:bold; }
-    textarea { width: 100%; max-width: 300px; background: #111; color: #fff; border: 1px solid #444; padding: 10px; border-radius: 10px; margin-bottom: 10px; }
-
-    #toast { position:fixed; bottom:120px; left:50%; transform:translateX(-50%); background:#fff; color:#000; padding:8px 20px; border-radius:20px; display:none; z-index:400; font-size: 12px; }
+    #toast { position:fixed; bottom:120px; left:50%; transform:translateX(-50%); background:#fff; color:#000; padding:8px 20px; border-radius:20px; display:none; z-index:400; font-size: 12px; font-weight:bold; }
 </style>
 </head>
 <body>
 
-<div id="statusLine">Ожидание GPS...</div>
-
+<div id="statusLine">ПОИСК GPS...</div>
 <canvas id="canvas"></canvas>
 
 <div id="toolbar">
@@ -55,40 +40,39 @@
     <div class="btn tool" id="btn-draw" onclick="setMode('draw')">✏️</div>
     <div class="btn tool" id="btn-hand" onclick="setMode('hand')">✋</div>
     <div class="btn tool" id="btn-erase" onclick="setMode('erase')">🧽</div>
-    <div class="btn" onclick="addGeo()">📍</div>
+    <div class="btn" onclick="applyGeo()">📍</div>
     <div class="btn" onclick="openDescModal()">📝</div>
     <div class="btn" onclick="openSaveMenu()">💾</div>
 </div>
 
 <div id="bottomBar">
-    <div class="bottom-btn small" onclick="undo()">↩️</div>
+    <div class="bottom-btn" style="width:45px; height:45px; font-size:20px;" onclick="undo()">↩️</div>
     <label class="bottom-btn" for="cameraInput">📷</label>
-    <div class="bottom-btn small" onclick="redo()">↪️</div>
+    <div class="bottom-btn" style="width:45px; height:45px; font-size:20px;" onclick="redo()">↪️</div>
 </div>
 
-<input type="file" accept="image/*" id="galleryInput" onchange="loadImage(this.files[0])">
-<input type="file" accept="image/*" capture="environment" id="cameraInput" onchange="loadImage(this.files[0])">
+<input type="file" id="galleryInput" onchange="loadImage(this.files[0])">
+<input type="file" capture="environment" id="cameraInput" onchange="loadImage(this.files[0])">
 
 <div id="descModal" class="modal">
-    <h3>Описание (сохранится)</h3>
-    <textarea id="descText" rows="4" placeholder="Введите текст..."></textarea>
-    <button class="opt-btn" style="background:#007bff" onclick="saveDesc()">Применить</button>
-    <button onclick="closeModal('descModal')" style="background:none; border:none; color:#666; margin-top:10px;">Отмена</button>
+    <h3>Описание (сохраняется)</h3>
+    <textarea id="descText" rows="4" placeholder="Текст метки..."></textarea>
+    <button class="opt-btn" style="background:#007bff" onclick="applyDesc()">Нанести на фото</button>
+    <button onclick="closeModal('descModal')" style="color:#666; background:none; margin-top:10px;">Закрыть</button>
 </div>
 
 <div id="saveMenu" class="modal">
-    <h3 style="color:#00ff00">Цвет и Тип</h3>
-    <div style="display:flex; gap:10px; margin-bottom:10px;">
-        <button class="opt-btn" style="color:red; border-color:red" onclick="setOpt('color','Красная')">Красная</button>
-        <button class="opt-btn" style="color:yellow; border-color:yellow" onclick="setOpt('color','Желтая')">Желтая</button>
+    <h3 style="color:#00ff00">Выбор Опций</h3>
+    <div style="display:flex; gap:10px;">
+        <button class="opt-btn" style="color:red; border:1px solid red" onclick="setOpt('color','Красная')">Красная</button>
+        <button class="opt-btn" style="color:yellow; border:1px solid yellow" onclick="setOpt('color','Желтая')">Желтая</button>
     </div>
-    <div style="display:flex; gap:10px; margin-bottom:20px;">
+    <div style="display:flex; gap:10px; margin-top:10px;">
         <button class="opt-btn" onclick="setOpt('type','Тайник')">Тайник</button>
         <button class="opt-btn" onclick="setOpt('type','Магнит')">Магнит</button>
     </div>
-    <button class="opt-btn" style="background:#007bff; border:none" onclick="downloadImage()">Скачать результат</button>
-    <a href="https://t.me/Foximboxf_bot" style="margin-top:20px; color:#0088cc; text-decoration:none; font-weight:bold">Foximbox Bot 📥</a>
-    <button onclick="closeModal('saveMenu')" style="margin-top:20px; background:none; border:none; color:#666">Назад</button>
+    <button class="opt-btn" style="background:#007bff; margin-top:20px;" onclick="finalSave()">СОХРАНИТЬ ФОТО</button>
+    <a href="https://t.me/Foximboxf_bot" style="margin-top:20px; color:#0088cc; text-decoration:none; font-weight:bold;">Перейти в Бот @Foximboxf_bot</a>
 </div>
 
 <div id="toast"></div>
@@ -97,32 +81,25 @@
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 let mode = "draw", imgObj = null, history = [], redoStack = [];
-let scale = 1, offX = 0, offY = 0;
-let selColor = "Красная", selType = "Тайник", savedDesc = "", lastGPS = "";
+let scale = 1, offX = 0, offY = 0, lastGPS = "", selColor = "Красная", selType = "Тайник";
+
+// Загрузка сохраненного описания
+document.getElementById('descText').value = localStorage.getItem('foxDesc') || "";
 
 function init() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     ctx.fillStyle = "#000";
     ctx.fillRect(0,0,canvas.width, canvas.height);
-    setMode('draw');
     trackGPS();
 }
 window.addEventListener('resize', init);
 init();
 
-function setMode(m) {
-    mode = m;
-    document.querySelectorAll('.tool').forEach(b => b.classList.remove('active-tool'));
-    if(document.getElementById('btn-' + m)) document.getElementById('btn-' + m).classList.add('active-tool');
-}
-
 function trackGPS() {
     navigator.geolocation.watchPosition(geo => {
-        const lat = geo.coords.latitude.toFixed(6);
-        const lon = geo.coords.longitude.toFixed(6);
         const acc = Math.round(geo.coords.accuracy);
-        lastGPS = `📍 ${lat}, ${lon} (${acc}м)`;
+        lastGPS = `📍 ${geo.coords.latitude.toFixed(6)}, ${geo.coords.longitude.toFixed(6)} (${acc}м)`;
         const bar = document.getElementById('statusLine');
         bar.innerText = lastGPS;
         bar.style.background = acc <= 15 ? "#00ff00" : "red";
@@ -133,98 +110,108 @@ function loadImage(file) {
     if(!file) return;
     const reader = new FileReader();
     reader.onload = e => {
-        imgObj = new Image();
-        imgObj.onload = () => {
+        const tempImg = new Image();
+        tempImg.onload = () => {
+            imgObj = tempImg;
             scale = Math.min(canvas.width/imgObj.width, canvas.height/imgObj.height);
             offX = (canvas.width - imgObj.width*scale)/2;
             offY = (canvas.height - imgObj.height*scale)/2;
             render();
             saveState();
         };
-        imgObj.src = e.target.result;
+        tempImg.src = e.target.result;
     };
     reader.readAsDataURL(file);
 }
 
 function render() {
     ctx.fillStyle = "#000";
-    ctx.fillRect(0,0,canvas.width, canvas.height);
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     if(imgObj) ctx.drawImage(imgObj, offX, offY, imgObj.width*scale, imgObj.height*scale);
 }
 
-function wrapText(text, x, y, maxWidth, lineHeight) {
-    let words = text.split(' ');
-    let line = '';
-    for(let n = 0; n < words.length; n++) {
-        let testLine = line + words[n] + ' ';
-        let metrics = ctx.measureText(testLine);
-        if (metrics.width > maxWidth && n > 0) {
-            ctx.fillText(line, x, y);
-            line = words[n] + ' ';
-            y += lineHeight;
-        } else { line = testLine; }
-    }
-    ctx.fillText(line, x, y);
-    return y;
+function setMode(m) {
+    mode = m;
+    document.querySelectorAll('.tool').forEach(b => b.classList.remove('active-tool'));
+    document.getElementById('btn-'+m).classList.add('active-tool');
 }
 
-function addGeo() {
-    if(!lastGPS) return showToast("Ждем GPS...");
-    ctx.font = "14px system-ui"; ctx.fillStyle = "white";
-    ctx.shadowBlur = 4; ctx.shadowColor = "black";
-    ctx.fillText(lastGPS, 15, canvas.height - 20);
+function drawText(text, yPos) {
+    ctx.font = "bold 14px system-ui";
+    ctx.fillStyle = "white";
+    ctx.strokeStyle = "black";
+    ctx.lineWidth = 3;
+    ctx.textAlign = "left";
+    
+    const x = 15;
+    const maxWidth = canvas.width - 30;
+    const words = text.split(' ');
+    let line = '';
+    let y = yPos;
+
+    for(let n = 0; n < words.length; n++) {
+        let testLine = line + words[n] + ' ';
+        if (ctx.measureText(testLine).width > maxWidth && n > 0) {
+            ctx.strokeText(line, x, y);
+            ctx.fillText(line, x, y);
+            line = words[n] + ' ';
+            y += 20;
+        } else { line = testLine; }
+    }
+    ctx.strokeText(line, x, y);
+    ctx.fillText(line, x, y);
+}
+
+function applyGeo() {
+    if(!lastGPS) return showToast("Нет GPS!");
+    drawText(lastGPS, canvas.height - 30);
     saveState();
     showToast("Координаты нанесены");
 }
 
-function openDescModal() { document.getElementById('descModal').style.display = 'flex'; document.getElementById('descText').value = savedDesc; }
+function openDescModal() { document.getElementById('descModal').style.display = 'flex'; }
 function openSaveMenu() { document.getElementById('saveMenu').style.display = 'flex'; }
 function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
-function saveDesc() {
-    savedDesc = document.getElementById('descText').value;
-    ctx.font = "14px system-ui"; ctx.fillStyle = "white";
-    ctx.shadowBlur = 4; ctx.shadowColor = "black";
-    // Рисуем описание чуть выше координат
-    wrapText(savedDesc, 15, canvas.height - 60, canvas.width - 30, 18);
+function applyDesc() {
+    const txt = document.getElementById('descText').value;
+    localStorage.setItem('foxDesc', txt);
+    drawText(txt, canvas.height - 65);
     saveState();
     closeModal('descModal');
 }
 
 function setOpt(k, v) { if(k==='color') selColor = v; else selType = v; showToast(v); }
 
-function downloadImage() {
-    const info = `${selColor} | ${selType}`;
+function finalSave() {
+    const tag = `${selColor} | ${selType}`;
     ctx.font = "bold 14px system-ui";
     ctx.fillStyle = selColor === 'Красная' ? 'red' : 'yellow';
-    ctx.fillText(info, 15, 45); // Под статус-баром
-    saveState();
+    ctx.strokeStyle = "black"; ctx.lineWidth = 2;
+    ctx.strokeText(tag, 15, 45);
+    ctx.fillText(tag, 15, 45);
+    
     const link = document.createElement('a');
     link.download = `fox_${Date.now()}.jpg`;
-    link.href = canvas.toDataURL("image/jpeg", 0.95);
+    link.href = canvas.toDataURL("image/jpeg", 0.9);
     link.click();
     closeModal('saveMenu');
+    saveState();
 }
 
-// Рисование и история (стандарт)
 function saveState() { history.push(canvas.toDataURL()); if(history.length > 15) history.shift(); redoStack = []; }
-function undo() { if(history.length > 1) { redoStack.push(history.pop()); let img = new Image(); img.onload = () => { ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(img,0,0); }; img.src = history[history.length-1]; } }
-function redo() { if(redoStack.length > 0) { const s = redoStack.pop(); history.push(s); let img = new Image(); img.onload = () => ctx.drawImage(img,0,0); img.src = s; } }
+function undo() { if(history.length > 1) { redoStack.push(history.pop()); let i = new Image(); i.onload = () => { ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(i,0,0); }; i.src = history[history.length-1]; } }
+function redo() { if(redoStack.length > 0) { let s = redoStack.pop(); history.push(s); let i = new Image(); i.onload = () => ctx.drawImage(i,0,0); i.src = s; } }
 
-let startX, startY, startDist;
 canvas.addEventListener('touchstart', e => {
     const t = e.touches[0];
-    if(mode === 'hand') {
-        startX = t.clientX - offX; startY = t.clientY - offY;
-        if(e.touches.length === 2) startDist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
-    } else { ctx.beginPath(); ctx.moveTo(t.clientX, t.clientY); }
+    if(mode === 'hand') { startX = t.clientX - offX; startY = t.clientY - offY; }
+    else { ctx.beginPath(); ctx.moveTo(t.clientX, t.clientY); }
 });
 canvas.addEventListener('touchmove', e => {
     e.preventDefault(); const t = e.touches[0];
-    if(mode === 'hand') {
-        if(e.touches.length === 1) { offX = t.clientX - startX; offY = t.clientY - startY; render(); }
-        else if(e.touches.length === 2) { let d = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY); scale *= (d / startDist); startDist = d; render(); }
-    } else {
+    if(mode === 'hand') { offX = t.clientX - startX; offY = t.clientY - startY; render(); }
+    else {
         if(mode === 'draw') { ctx.strokeStyle = "#ff3366"; ctx.lineWidth = 4; ctx.lineCap="round"; ctx.lineTo(t.clientX, t.clientY); ctx.stroke(); }
         else if(mode === 'erase') { ctx.clearRect(t.clientX-20, t.clientY-20, 40, 40); }
     }
