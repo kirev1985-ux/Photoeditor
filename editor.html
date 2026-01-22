@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>PhotoEditor v2</title>
+    <title>PhotoEditor v13</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         body { margin: 0; background: #000; font-family: sans-serif; overflow: hidden; color: white; touch-action: none; }
@@ -40,13 +40,13 @@
 <div id="modal-iso">
     <div class="iso-btn red-iso" onclick="finalizeSave('КРАСНАЯ ИЗО', 'red')">КРАСНАЯ ИЗО</div>
     <div class="iso-btn yellow-iso" onclick="finalizeSave('ЖЕЛТАЯ ИЗО', 'yellow')">ЖЕЛТАЯ ИЗО</div>
-    <div style="padding: 10px;" onclick="document.getElementById('modal-iso').style.display='none'">ОТМЕНА</div>
+    <div style="padding: 15px; color: #888;" onclick="document.getElementById('modal-iso').style.display='none'">ОТМЕНА</div>
 </div>
 
 <input type="file" id="hiddenInput" accept="image/*" capture="environment" style="display:none" onchange="loadPhoto(this)">
 
 <div id="save-screen" onclick="this.style.display='none'">
-    <p>ЗАЖМИ ДЛЯ СОХРАНЕНИЯ</p>
+    <p>ЗАЖМИ ФОТО ДЛЯ СОХРАНЕНИЯ</p>
     <img id="save-img">
 </div>
 
@@ -61,7 +61,7 @@
         ctx.fillStyle = '#111'; ctx.fillRect(0, 0, canvas.width, canvas.height);
         navigator.geolocation.watchPosition(p => {
             lastGPS = { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy };
-            document.getElementById('gps-live').innerText = `Координаты: ${lastGPS.lat.toFixed(6)}, ${lastGPS.lon.toFixed(6)} (±${lastGPS.acc.toFixed(1)}м)`;
+            document.getElementById('gps-live').innerText = `GPS: ${lastGPS.lat.toFixed(6)}, ${lastGPS.lon.toFixed(6)} (±${lastGPS.acc.toFixed(1)}м)`;
         }, null, { enableHighAccuracy: true });
         saveStep();
     };
@@ -71,10 +71,7 @@
         const reader = new FileReader();
         reader.onload = (e) => {
             const img = new Image();
-            img.onload = () => {
-                baseImage = img;
-                render();
-            };
+            img.onload = () => { baseImage = img; render(); };
             img.src = e.target.result;
         };
         reader.readAsDataURL(input.files[0]);
@@ -82,12 +79,13 @@
 
     function render() {
         if (!baseImage) return;
-        const ratio = Math.min(canvas.width / baseImage.width, (canvas.height - 40) / baseImage.height);
+        const ratio = Math.min(canvas.width / baseImage.width, canvas.height / baseImage.height);
         const w = baseImage.width * ratio, h = baseImage.height * ratio;
         ctx.clearRect(0,0, canvas.width, canvas.height);
         ctx.fillStyle = "#000"; ctx.fillRect(0,0, canvas.width, canvas.height);
         ctx.drawImage(baseImage, (canvas.width - w)/2, (canvas.height - h)/2, w, h);
         
+        // Отрисовка описания (СНИЗУ, над координатами)
         if (currentNote) {
             ctx.font = "16px Arial";
             const words = currentNote.split(' '), lines = []; let line = '';
@@ -97,11 +95,11 @@
                 else { line = test; }
             }
             lines.push(line);
-            const lineH = 22, boxH = lines.length * lineH + 15;
-            const yPos = 40; // Рисуем описание сверху
+            const lineH = 22, boxH = lines.length * lineH + 10;
+            const yPos = canvas.height - 40 - boxH; // Располагаем прямо над GPS-штампом
             ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(0, yPos, canvas.width, boxH);
             ctx.fillStyle = "white"; ctx.textAlign = "center";
-            lines.forEach((l, i) => ctx.fillText(l, canvas.width/2, yPos + 22 + (i*lineH)));
+            lines.forEach((l, i) => ctx.fillText(l, canvas.width/2, yPos + 20 + (i*lineH)));
             ctx.textAlign = "left";
         }
     }
@@ -119,26 +117,29 @@
     });
     canvas.addEventListener('touchend', () => { drawing = false; saveStep(); });
 
+    // GPS ШТАМП (СНИЗУ САМЫМ НИЖНИМ СЛОЕМ)
     function stampGPS() {
-        const txt = `📍 ${lastGPS.lat.toFixed(6)}, ${lastGPS.lon.toFixed(6)}`;
-        ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(0, 0, canvas.width, 40);
-        ctx.fillStyle = "white"; ctx.font = "18px Arial"; ctx.textAlign = "center";
-        ctx.fillText(txt, canvas.width/2, 28);
+        const txt = `📍 ${lastGPS.lat.toFixed(6)}, ${lastGPS.lon.toFixed(6)} (±${lastGPS.acc.toFixed(1)}м)`;
+        ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(0, canvas.height - 40, canvas.width, 40);
+        ctx.fillStyle = "white"; ctx.font = "16px Arial"; ctx.textAlign = "center";
+        ctx.fillText(txt, canvas.width/2, canvas.height - 15);
         ctx.textAlign = "left"; saveStep();
     }
 
     function updateNote() {
-        const n = prompt("Описание (перенос строк работает):", currentNote);
+        const n = prompt("Введите описание:", currentNote);
         if (n !== null) { currentNote = n; render(); saveStep(); }
     }
 
     function showIsoMenu() { document.getElementById('modal-iso').style.display = 'flex'; }
 
+    // ЦВЕТ ИЗО (СВЕРХУ)
     function finalizeSave(label, color) {
-        ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(10, 80, 160, 35);
-        ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.strokeRect(10, 80, 160, 35);
+        ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(10, 45, 160, 35);
+        ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.strokeRect(10, 45, 160, 35);
         ctx.fillStyle = color; ctx.font = "bold 14px Arial"; ctx.textAlign = "center";
-        ctx.fillText(label, 90, 103); ctx.textAlign = "left";
+        ctx.fillText(label, 90, 68); ctx.textAlign = "left";
+        
         document.getElementById('modal-iso').style.display = 'none';
         document.getElementById('save-img').src = canvas.toDataURL("image/png");
         document.getElementById('save-screen').style.display = 'flex';
