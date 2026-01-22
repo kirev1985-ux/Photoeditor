@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Photo Editor V11 (Stable)</title>
+    <title>Photo Editor V12 (All Functions)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         body { margin: 0; background: #000; font-family: sans-serif; overflow: hidden; color: white; touch-action: none; }
@@ -53,7 +53,7 @@
 <script>
     const canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d');
     let history = [], currentNote = "", lastGPS = { lat: 0, lon: 0, acc: 0 };
-    let baseImage = null;
+    let baseImage = null, drawing = false, lastX = 0, lastY = 0;
 
     window.onload = () => {
         canvas.width = window.innerWidth;
@@ -70,10 +70,7 @@
         const reader = new FileReader();
         reader.onload = (e) => {
             const img = new Image();
-            img.onload = () => {
-                baseImage = img;
-                render();
-            };
+            img.onload = () => { baseImage = img; render(); };
             img.src = e.target.result;
         };
         reader.readAsDataURL(input.files[0]);
@@ -94,42 +91,15 @@
                 else { line = test; }
             }
             lines.push(line);
-            const h = lines.length * 22 + 10;
-            ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(0, canvas.height - 85 - (lines.length*22), canvas.width, h);
+            const lineH = 22;
+            const h = lines.length * lineH + 15;
+            const yPos = canvas.height - 85 - (lines.length * lineH);
+            ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(0, yPos, canvas.width, h);
             ctx.fillStyle = "white"; ctx.textAlign = "center";
-            lines.forEach((l, i) => ctx.fillText(l, canvas.width/2, (canvas.height - 75 - (lines.length*22)) + (i*22) + 15));
+            lines.forEach((l, i) => ctx.fillText(l, canvas.width/2, yPos + 22 + (i*lineH)));
             ctx.textAlign = "left";
         }
         saveStep();
     }
 
-    function stampGPS() {
-        const txt = `📍 ${lastGPS.lat.toFixed(6)}, ${lastGPS.lon.toFixed(6)} (±${lastGPS.acc.toFixed(0)}м)`;
-        ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(0, canvas.height - 40, canvas.width, 40);
-        ctx.fillStyle = "white"; ctx.font = "16px Arial"; ctx.textAlign = "center";
-        ctx.fillText(txt, canvas.width/2, canvas.height - 15);
-        ctx.textAlign = "left"; saveStep();
-    }
-
-    function updateNote() {
-        const n = prompt("Текст:", currentNote);
-        if (n !== null) { currentNote = n; render(); }
-    }
-
-    function showIsoMenu() { document.getElementById('modal-iso').style.display = 'flex'; }
-
-    function finalizeSave(label, color) {
-        ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(10, 50, 160, 35);
-        ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.strokeRect(10, 50, 160, 35);
-        ctx.fillStyle = color; ctx.font = "bold 14px Arial"; ctx.textAlign = "center";
-        ctx.fillText(label, 90, 73); ctx.textAlign = "left";
-        document.getElementById('modal-iso').style.display = 'none';
-        document.getElementById('save-img').src = canvas.toDataURL("image/png");
-        document.getElementById('save-screen').style.display = 'flex';
-    }
-
-    function saveStep() { history.push(canvas.toDataURL()); if(history.length > 10) history.shift(); }
-    function undo() { if(history.length > 1) { history.pop(); const i = new Image(); i.onload = () => { ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(i,0,0); }; i.src = history[history.length-1]; } }
-</script>
-</body>
-</html>
+    // ВОЗВРАЩЕН
