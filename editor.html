@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Photo Editor V9 (Fix)</title>
+    <title>Photo Editor V10 (Word Wrap)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         body { margin: 0; background: #000; font-family: sans-serif; overflow: hidden; color: white; touch-action: none; }
@@ -55,7 +55,7 @@
     let history = [], drawing = false, lastX = 0, lastY = 0;
     let currentNote = "";
     let lastGPS = { lat: 0, lon: 0, acc: 0 };
-    let baseImage = null; // Храним чистое фото отдельно
+    let baseImage = null;
 
     function init() {
         canvas.width = window.innerWidth;
@@ -76,7 +76,7 @@
 
     function triggerCam() {
         const inp = document.getElementById('hiddenInput');
-        inp.value = ""; // Сброс, чтобы срабатывало каждый раз
+        inp.value = "";
         inp.click();
     }
 
@@ -86,7 +86,7 @@
         reader.onload = (e) => {
             const img = new Image();
             img.onload = () => {
-                baseImage = img; // Сохраняем как основу
+                baseImage = img;
                 redrawAll();
             };
             img.src = e.target.result;
@@ -94,7 +94,27 @@
         reader.readAsDataURL(input.files[0]);
     }
 
-    // Главная функция перерисовки (спасает от черного экрана)
+    // ФУНКЦИЯ ПЕРЕНОСА ТЕКСТА
+    function wrapText(text, x, maxWidth, lineHeight) {
+        const words = text.split(' ');
+        let line = '';
+        const lines = [];
+
+        for (let n = 0; n < words.length; n++) {
+            let testLine = line + words[n] + ' ';
+            let metrics = ctx.measureText(testLine);
+            let testWidth = metrics.width;
+            if (testWidth > maxWidth && n > 0) {
+                lines.push(line);
+                line = words[n] + ' ';
+            } else {
+                line = testLine;
+            }
+        }
+        lines.push(line);
+        return lines;
+    }
+
     function redrawAll() {
         if (!baseImage) return;
         const ratio = Math.min(canvas.width / baseImage.width, canvas.height / baseImage.height);
@@ -104,10 +124,24 @@
         ctx.drawImage(baseImage, (canvas.width - nw)/2, (canvas.height - nh)/2, nw, nh);
         
         if (currentNote) {
-            const y = canvas.height - 85;
-            ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(0, y, canvas.width, 40);
-            ctx.fillStyle = "white"; ctx.font = "16px Arial"; ctx.textAlign = "center";
-            ctx.fillText(currentNote, canvas.width/2, y + 25);
+            ctx.font = "16px Arial";
+            const maxWidth = canvas.width - 40;
+            const lineHeight = 22;
+            const lines = wrapText(currentNote, 0, maxWidth, lineHeight);
+            
+            const totalTextHeight = lines.length * lineHeight;
+            const yStart = canvas.height - 85 - (lines.length - 1) * lineHeight;
+            
+            // Рисуем подложку под количество строк
+            ctx.fillStyle = "rgba(0,0,0,0.6)";
+            ctx.fillRect(0, yStart - 10, canvas.width, totalTextHeight + 15);
+            
+            // Рисуем строки текста
+            ctx.fillStyle = "white";
+            ctx.textAlign = "center";
+            lines.forEach((line, index) => {
+                ctx.fillText(line, canvas.width / 2, yStart + 15 + (index * lineHeight));
+            });
             ctx.textAlign = "start";
         }
         saveStep();
@@ -116,52 +150,4 @@
     canvas.addEventListener('touchstart', e => { drawing = true; lastX = e.touches[0].clientX; lastY = e.touches[0].clientY; });
     canvas.addEventListener('touchmove', e => {
         if (!drawing) return; e.preventDefault();
-        ctx.strokeStyle = "red"; ctx.lineWidth = 4; ctx.lineCap = "round";
-        ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(e.touches[0].clientX, e.touches[0].clientY); ctx.stroke();
-        lastX = e.touches[0].clientX; lastY = e.touches[0].clientY;
-    });
-    canvas.addEventListener('touchend', () => { drawing = false; saveStep(); });
-
-    function stampGPS() {
-        const text = `📍 ${lastGPS.lat.toFixed(6)}, ${lastGPS.lon.toFixed(6)} (±${lastGPS.acc.toFixed(0)}м)`;
-        const y = canvas.height - 40;
-        ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(0, y, canvas.width, 40);
-        ctx.fillStyle = "white"; ctx.font = "16px Arial"; ctx.textAlign = "center";
-        ctx.fillText(text, canvas.width/2, y + 25);
-        ctx.textAlign = "start";
-        saveStep();
-    }
-
-    function updateNote() {
-        const n = prompt("Текст:", currentNote);
-        if (n !== null) { 
-            currentNote = n; 
-            redrawAll(); // Перерисовываем фото с новым текстом
-        }
-    }
-
-    function showIsoMenu() { document.getElementById('modal-iso').style.display = 'flex'; }
-
-    function finalizeSave(label, color) {
-        ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(10, 50, 160, 35);
-        ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.strokeRect(10, 50, 160, 35);
-        ctx.fillStyle = color; ctx.font = "bold 14px Arial"; ctx.textAlign = "center";
-        ctx.fillText(label, 90, 73); ctx.textAlign = "start";
-        
-        document.getElementById('modal-iso').style.display = 'none';
-        document.getElementById('save-img').src = canvas.toDataURL("image/png");
-        document.getElementById('save-screen').style.display = 'flex';
-    }
-
-    function saveStep() { if (history.length > 15) history.shift(); history.push(canvas.toDataURL()); }
-    function undo() {
-        if (history.length > 1) {
-            history.pop(); const img = new Image();
-            img.onload = () => { ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(img,0,0); };
-            img.src = history[history.length-1];
-        }
-    }
-    window.onload = init;
-</script>
-</body>
-</html>
+        ctx.strokeStyle = "red"; ctx.lineWidth = 4
