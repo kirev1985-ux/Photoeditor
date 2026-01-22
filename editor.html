@@ -1,105 +1,105 @@
+    // ВОЗВРАЩЕН
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Photo Editor V12 (All Functions)</title>
+    <title>Photo Editor STABLE</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
-        body { margin: 0; background: #000; font-family: sans-serif; overflow: hidden; color: white; touch-action: none; }
-        canvas { display: block; background: #111; margin: 0 auto; }
-        #gps-live { position: fixed; top: 0; left: 0; width: 100%; background: rgba(0,0,0,0.8); color: #0f0; font-size: 11px; padding: 5px; text-align: center; z-index: 20; }
-        #side-menu { position: fixed; right: 10px; top: 50px; display: flex; flex-direction: column; gap: 12px; z-index: 10; }
-        .btn-side { width: 52px; height: 52px; background: #333; border: 1px solid #555; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; }
-        #bottom-menu { position: fixed; bottom: 30px; width: 100%; display: flex; justify-content: center; align-items: center; gap: 30px; z-index: 10; }
-        .btn-cam { width: 80px; height: 80px; background: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40px; border: 5px solid #444; color: #000; }
-        .btn-round { width: 55px; height: 55px; background: #444; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; }
-        #modal-iso, #save-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
-        .iso-btn { width: 250px; padding: 20px; margin: 10px; border-radius: 15px; font-weight: bold; text-align: center; border: 3px solid transparent; }
-        .red-iso { background: #600; border-color: red; }
-        .yellow-iso { background: #660; border-color: yellow; }
-        #save-img { max-width: 90%; max-height: 70%; border: 1px solid #fff; }
+        body { margin: 0; background: #000; overflow: hidden; font-family: sans-serif; }
+        canvas { display: block; background: #111; }
+        .menu { position: fixed; bottom: 20px; width: 100%; display: flex; justify-content: center; gap: 20px; z-index: 10; }
+        .btn { width: 60px; height: 60px; background: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
+        .side-btn { position: fixed; right: 10px; top: 20px; width: 50px; height: 50px; background: #333; color: white; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 10px; }
+        #save-screen { position: fixed; top:0; left:0; width:100%; height:100%; background: #000; display:none; flex-direction:column; align-items:center; justify-content:center; z-index:100; }
     </style>
 </head>
 <body>
 
-<div id="gps-live">Поиск GPS...</div>
 <canvas id="canvas"></canvas>
 
-<div id="side-menu">
-    <div class="btn-side" onclick="stampGPS()">📍</div>
-    <div class="btn-side" onclick="updateNote()">📝</div>
-    <div class="btn-side" onclick="showIsoMenu()">💾</div>
+<div class="menu">
+    <div class="btn" onclick="document.getElementById('fileInput').click()">📷</div>
+    <div class="btn" onclick="location.reload()">🔄</div>
 </div>
 
-<div id="bottom-menu">
-    <div class="btn-round" onclick="undo()">↩️</div>
-    <div class="btn-cam" onclick="document.getElementById('hiddenInput').click()">📷</div>
-    <div class="btn-round" onclick="location.reload()">🔄</div>
+<div style="position:fixed; right:10px; top:20px; display:flex; flex-direction:column; gap:10px;">
+    <div class="side-btn" onclick="addGPS()">📍</div>
+    <div class="side-btn" onclick="addNote()">📝</div>
+    <div class="side-btn" onclick="save()">💾</div>
 </div>
 
-<div id="modal-iso">
-    <div class="iso-btn red-iso" onclick="finalizeSave('КРАСНАЯ ИЗО', 'red')">КРАСНАЯ ИЗО</div>
-    <div class="iso-btn yellow-iso" onclick="finalizeSave('ЖЕЛТАЯ ИЗО', 'yellow')">ЖЕЛТАЯ ИЗО</div>
-    <div onclick="document.getElementById('modal-iso').style.display='none'">ОТМЕНА</div>
-</div>
-
-<input type="file" id="hiddenInput" accept="image/*" capture="environment" style="display:none" onchange="loadPhoto(this)">
+<input type="file" id="fileInput" accept="image/*" capture="environment" style="display:none" onchange="handleImage(this)">
 
 <div id="save-screen" onclick="this.style.display='none'">
-    <p>ЗАЖМИ ДЛЯ СОХРАНЕНИЯ</p>
-    <img id="save-img">
+    <p style="color:white">ЗАЖМИ ФОТО ДЛЯ СОХРАНЕНИЯ</p>
+    <img id="out-img" style="max-width:90%; border:1px solid white;">
 </div>
 
 <script>
-    const canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d');
-    let history = [], currentNote = "", lastGPS = { lat: 0, lon: 0, acc: 0 };
-    let baseImage = null, drawing = false, lastX = 0, lastY = 0;
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    let drawing = false;
 
-    window.onload = () => {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-        ctx.fillStyle = '#111'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        navigator.geolocation.watchPosition(p => {
-            lastGPS = { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy };
-            document.getElementById('gps-live').innerText = `GPS: ${lastGPS.lat.toFixed(6)}, ${lastGPS.lon.toFixed(6)} (±${lastGPS.acc.toFixed(1)}м)`;
-        }, null, { enableHighAccuracy: true });
-    };
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
 
-    function loadPhoto(input) {
-        if (!input.files[0]) return;
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const img = new Image();
-            img.onload = () => { baseImage = img; render(); };
-            img.src = e.target.result;
-        };
-        reader.readAsDataURL(input.files[0]);
-    }
-
-    function render() {
-        if (!baseImage) return;
-        const ratio = Math.min(canvas.width / baseImage.width, canvas.height / baseImage.height);
-        ctx.clearRect(0,0, canvas.width, canvas.height);
-        ctx.drawImage(baseImage, (canvas.width - baseImage.width*ratio)/2, (canvas.height - baseImage.height*ratio)/2, baseImage.width*ratio, baseImage.height*ratio);
-        
-        if (currentNote) {
-            ctx.font = "16px Arial";
-            const words = currentNote.split(' '), lines = []; let line = '';
-            for (let n = 0; n < words.length; n++) {
-                let test = line + words[n] + ' ';
-                if (ctx.measureText(test).width > canvas.width - 40 && n > 0) { lines.push(line); line = words[n] + ' '; }
-                else { line = test; }
+    function handleImage(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const ratio = Math.min(canvas.width / img.width, canvas.height / img.height);
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0, img.width * ratio, img.height * ratio);
+                }
+                img.src = e.target.result;
             }
-            lines.push(line);
-            const lineH = 22;
-            const h = lines.length * lineH + 15;
-            const yPos = canvas.height - 85 - (lines.length * lineH);
-            ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(0, yPos, canvas.width, h);
-            ctx.fillStyle = "white"; ctx.textAlign = "center";
-            lines.forEach((l, i) => ctx.fillText(l, canvas.width/2, yPos + 22 + (i*lineH)));
-            ctx.textAlign = "left";
+            reader.readAsDataURL(input.files[0]);
         }
-        saveStep();
     }
 
-    // ВОЗВРАЩЕН
+    canvas.addEventListener('touchstart', (e) => { drawing = true; draw(e); });
+    canvas.addEventListener('touchmove', (e) => { if(drawing) draw(e); e.preventDefault(); });
+    canvas.addEventListener('touchend', () => { drawing = false; ctx.beginPath(); });
+
+    function draw(e) {
+        ctx.lineWidth = 5;
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = 'red';
+        ctx.lineTo(e.touches[0].clientX, e.touches[0].clientY);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(e.touches[0].clientX, e.touches[0].clientY);
+    }
+
+    function addGPS() {
+        navigator.geolocation.getCurrentPosition(p => {
+            const text = "📍 " + p.coords.latitude.toFixed(6) + ", " + p.coords.longitude.toFixed(6);
+            ctx.fillStyle = "rgba(0,0,0,0.5)";
+            ctx.fillRect(10, canvas.height - 40, 250, 30);
+            ctx.fillStyle = "white";
+            ctx.font = "16px Arial";
+            ctx.fillText(text, 20, canvas.height - 20);
+        });
+    }
+
+    function addNote() {
+        const note = prompt("Введите текст:");
+        if(note) {
+            ctx.fillStyle = "rgba(0,0,0,0.5)";
+            ctx.fillRect(10, 20, canvas.width - 20, 30);
+            ctx.fillStyle = "white";
+            ctx.font = "16px Arial";
+            ctx.fillText(note, 20, 40);
+        }
+    }
+
+    function save() {
+        document.getElementById('out-img').src = canvas.toDataURL();
+        document.getElementById('save-screen').style.display = 'flex';
+    }
+</script>
+</body>
+</html>
