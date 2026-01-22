@@ -1,4 +1,3 @@
-    // ВОЗВРАЩЕН
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -37,69 +36,4 @@
 </div>
 
 <script>
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    let drawing = false;
-
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-
-    function handleImage(input) {
-        if (input.files && input.files[0]) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const img = new Image();
-                img.onload = function() {
-                    const ratio = Math.min(canvas.width / img.width, canvas.height / img.height);
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    ctx.drawImage(img, 0, 0, img.width * ratio, img.height * ratio);
-                }
-                img.src = e.target.result;
-            }
-            reader.readAsDataURL(input.files[0]);
-        }
-    }
-
-    canvas.addEventListener('touchstart', (e) => { drawing = true; draw(e); });
-    canvas.addEventListener('touchmove', (e) => { if(drawing) draw(e); e.preventDefault(); });
-    canvas.addEventListener('touchend', () => { drawing = false; ctx.beginPath(); });
-
-    function draw(e) {
-        ctx.lineWidth = 5;
-        ctx.lineCap = 'round';
-        ctx.strokeStyle = 'red';
-        ctx.lineTo(e.touches[0].clientX, e.touches[0].clientY);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(e.touches[0].clientX, e.touches[0].clientY);
-    }
-
-    function addGPS() {
-        navigator.geolocation.getCurrentPosition(p => {
-            const text = "📍 " + p.coords.latitude.toFixed(6) + ", " + p.coords.longitude.toFixed(6);
-            ctx.fillStyle = "rgba(0,0,0,0.5)";
-            ctx.fillRect(10, canvas.height - 40, 250, 30);
-            ctx.fillStyle = "white";
-            ctx.font = "16px Arial";
-            ctx.fillText(text, 20, canvas.height - 20);
-        });
-    }
-
-    function addNote() {
-        const note = prompt("Введите текст:");
-        if(note) {
-            ctx.fillStyle = "rgba(0,0,0,0.5)";
-            ctx.fillRect(10, 20, canvas.width - 20, 30);
-            ctx.fillStyle = "white";
-            ctx.font = "16px Arial";
-            ctx.fillText(note, 20, 40);
-        }
-    }
-
-    function save() {
-        document.getElementById('out-img').src = canvas.toDataURL();
-        document.getElementById('save-screen').style.display = 'flex';
-    }
-</script>
-</body>
-</html>
+    const canvas = document.getElementById
