@@ -2,12 +2,12 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Photo Editor V10 (Word Wrap)</title>
+    <title>Photo Editor V11 (Stable)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         body { margin: 0; background: #000; font-family: sans-serif; overflow: hidden; color: white; touch-action: none; }
         canvas { display: block; background: #111; margin: 0 auto; }
-        #gps-live { position: fixed; top: 0; left: 0; width: 100%; background: rgba(0,0,0,0.8); color: #0f0; font-size: 11px; padding: 5px; text-align: center; z-index: 20; border-bottom: 1px solid #333; }
+        #gps-live { position: fixed; top: 0; left: 0; width: 100%; background: rgba(0,0,0,0.8); color: #0f0; font-size: 11px; padding: 5px; text-align: center; z-index: 20; }
         #side-menu { position: fixed; right: 10px; top: 50px; display: flex; flex-direction: column; gap: 12px; z-index: 10; }
         .btn-side { width: 52px; height: 52px; background: #333; border: 1px solid #555; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; }
         #bottom-menu { position: fixed; bottom: 30px; width: 100%; display: flex; justify-content: center; align-items: center; gap: 30px; z-index: 10; }
@@ -22,7 +22,7 @@
 </head>
 <body>
 
-<div id="gps-live">Поиск спутников...</div>
+<div id="gps-live">Поиск GPS...</div>
 <canvas id="canvas"></canvas>
 
 <div id="side-menu">
@@ -33,7 +33,7 @@
 
 <div id="bottom-menu">
     <div class="btn-round" onclick="undo()">↩️</div>
-    <div class="btn-cam" onclick="triggerCam()">📷</div>
+    <div class="btn-cam" onclick="document.getElementById('hiddenInput').click()">📷</div>
     <div class="btn-round" onclick="location.reload()">🔄</div>
 </div>
 
@@ -52,33 +52,18 @@
 
 <script>
     const canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d');
-    let history = [], drawing = false, lastX = 0, lastY = 0;
-    let currentNote = "";
-    let lastGPS = { lat: 0, lon: 0, acc: 0 };
+    let history = [], currentNote = "", lastGPS = { lat: 0, lon: 0, acc: 0 };
     let baseImage = null;
 
-    function init() {
+    window.onload = () => {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
-        ctx.fillStyle = '#111';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        startGPSWatch();
-    }
-
-    function startGPSWatch() {
+        ctx.fillStyle = '#111'; ctx.fillRect(0, 0, canvas.width, canvas.height);
         navigator.geolocation.watchPosition(p => {
             lastGPS = { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy };
-            const monitor = document.getElementById('gps-live');
-            monitor.innerText = `GPS: ${lastGPS.lat.toFixed(6)}, ${lastGPS.lon.toFixed(6)} (±${lastGPS.acc.toFixed(1)}м)`;
-            monitor.style.color = lastGPS.acc < 15 ? "#0f0" : "#f00";
+            document.getElementById('gps-live').innerText = `GPS: ${lastGPS.lat.toFixed(6)}, ${lastGPS.lon.toFixed(6)} (±${lastGPS.acc.toFixed(1)}м)`;
         }, null, { enableHighAccuracy: true });
-    }
-
-    function triggerCam() {
-        const inp = document.getElementById('hiddenInput');
-        inp.value = "";
-        inp.click();
-    }
+    };
 
     function loadPhoto(input) {
         if (!input.files[0]) return;
@@ -87,67 +72,64 @@
             const img = new Image();
             img.onload = () => {
                 baseImage = img;
-                redrawAll();
+                render();
             };
             img.src = e.target.result;
         };
         reader.readAsDataURL(input.files[0]);
     }
 
-    // ФУНКЦИЯ ПЕРЕНОСА ТЕКСТА
-    function wrapText(text, x, maxWidth, lineHeight) {
-        const words = text.split(' ');
-        let line = '';
-        const lines = [];
-
-        for (let n = 0; n < words.length; n++) {
-            let testLine = line + words[n] + ' ';
-            let metrics = ctx.measureText(testLine);
-            let testWidth = metrics.width;
-            if (testWidth > maxWidth && n > 0) {
-                lines.push(line);
-                line = words[n] + ' ';
-            } else {
-                line = testLine;
-            }
-        }
-        lines.push(line);
-        return lines;
-    }
-
-    function redrawAll() {
+    function render() {
         if (!baseImage) return;
         const ratio = Math.min(canvas.width / baseImage.width, canvas.height / baseImage.height);
-        const nw = baseImage.width * ratio, nh = baseImage.height * ratio;
         ctx.clearRect(0,0, canvas.width, canvas.height);
-        ctx.fillStyle = "#000"; ctx.fillRect(0,0, canvas.width, canvas.height);
-        ctx.drawImage(baseImage, (canvas.width - nw)/2, (canvas.height - nh)/2, nw, nh);
+        ctx.drawImage(baseImage, (canvas.width - baseImage.width*ratio)/2, (canvas.height - baseImage.height*ratio)/2, baseImage.width*ratio, baseImage.height*ratio);
         
         if (currentNote) {
             ctx.font = "16px Arial";
-            const maxWidth = canvas.width - 40;
-            const lineHeight = 22;
-            const lines = wrapText(currentNote, 0, maxWidth, lineHeight);
-            
-            const totalTextHeight = lines.length * lineHeight;
-            const yStart = canvas.height - 85 - (lines.length - 1) * lineHeight;
-            
-            // Рисуем подложку под количество строк
-            ctx.fillStyle = "rgba(0,0,0,0.6)";
-            ctx.fillRect(0, yStart - 10, canvas.width, totalTextHeight + 15);
-            
-            // Рисуем строки текста
-            ctx.fillStyle = "white";
-            ctx.textAlign = "center";
-            lines.forEach((line, index) => {
-                ctx.fillText(line, canvas.width / 2, yStart + 15 + (index * lineHeight));
-            });
-            ctx.textAlign = "start";
+            const words = currentNote.split(' '), lines = []; let line = '';
+            for (let n = 0; n < words.length; n++) {
+                let test = line + words[n] + ' ';
+                if (ctx.measureText(test).width > canvas.width - 40 && n > 0) { lines.push(line); line = words[n] + ' '; }
+                else { line = test; }
+            }
+            lines.push(line);
+            const h = lines.length * 22 + 10;
+            ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(0, canvas.height - 85 - (lines.length*22), canvas.width, h);
+            ctx.fillStyle = "white"; ctx.textAlign = "center";
+            lines.forEach((l, i) => ctx.fillText(l, canvas.width/2, (canvas.height - 75 - (lines.length*22)) + (i*22) + 15));
+            ctx.textAlign = "left";
         }
         saveStep();
     }
 
-    canvas.addEventListener('touchstart', e => { drawing = true; lastX = e.touches[0].clientX; lastY = e.touches[0].clientY; });
-    canvas.addEventListener('touchmove', e => {
-        if (!drawing) return; e.preventDefault();
-        ctx.strokeStyle = "red"; ctx.lineWidth = 4
+    function stampGPS() {
+        const txt = `📍 ${lastGPS.lat.toFixed(6)}, ${lastGPS.lon.toFixed(6)} (±${lastGPS.acc.toFixed(0)}м)`;
+        ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(0, canvas.height - 40, canvas.width, 40);
+        ctx.fillStyle = "white"; ctx.font = "16px Arial"; ctx.textAlign = "center";
+        ctx.fillText(txt, canvas.width/2, canvas.height - 15);
+        ctx.textAlign = "left"; saveStep();
+    }
+
+    function updateNote() {
+        const n = prompt("Текст:", currentNote);
+        if (n !== null) { currentNote = n; render(); }
+    }
+
+    function showIsoMenu() { document.getElementById('modal-iso').style.display = 'flex'; }
+
+    function finalizeSave(label, color) {
+        ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(10, 50, 160, 35);
+        ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.strokeRect(10, 50, 160, 35);
+        ctx.fillStyle = color; ctx.font = "bold 14px Arial"; ctx.textAlign = "center";
+        ctx.fillText(label, 90, 73); ctx.textAlign = "left";
+        document.getElementById('modal-iso').style.display = 'none';
+        document.getElementById('save-img').src = canvas.toDataURL("image/png");
+        document.getElementById('save-screen').style.display = 'flex';
+    }
+
+    function saveStep() { history.push(canvas.toDataURL()); if(history.length > 10) history.shift(); }
+    function undo() { if(history.length > 1) { history.pop(); const i = new Image(); i.onload = () => { ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(i,0,0); }; i.src = history[history.length-1]; } }
+</script>
+</body>
+</html>
