@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Editor V16 - Auto Save Name</title>
+    <title>Editor V17</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         body { margin: 0; background: #000; font-family: sans-serif; overflow: hidden; color: white; touch-action: none; }
@@ -12,15 +12,9 @@
         .btn-side { width: 52px; height: 52px; background: #333; border: 1px solid #555; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; }
         #bottom-menu { position: fixed; bottom: 30px; width: 100%; display: flex; justify-content: center; align-items: center; gap: 30px; z-index: 10; }
         .btn-cam { width: 80px; height: 80px; background: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40px; color: #000; border: 5px solid #444; }
-        
-        /* ЭКРАН СОХРАНЕНИЯ */
         #save-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 2000; }
-        .btn-action { margin-top: 15px; width: 80%; padding: 18px; border-radius: 12px; font-weight: bold; text-align: center; font-size: 16px; border: none; }
-        .save-btn { background: #28a745; color: white; } /* Зеленая кнопка скачать */
-        .back-btn { background: #444; color: white; margin-top: 10px; } /* Серая кнопка назад */
-        
+        .btn-act { width: 80%; padding: 15px; margin: 10px; border-radius: 10px; font-weight: bold; text-align: center; border: none; font-size: 16px; }
         #modal-iso { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 1001; }
-        .iso-btn { width: 220px; padding: 20px; margin: 10px; border-radius: 15px; font-weight: bold; text-align: center; border: 2px solid white; }
     </style>
 </head>
 <body>
@@ -41,20 +35,17 @@
 </div>
 
 <div id="modal-iso">
-    <div class="iso-btn" style="background: #800;" onclick="finalizeSave('КРАСНАЯ ИЗО', 'red')">КРАСНАЯ ИЗО</div>
-    <div class="iso-btn" style="background: #880;" onclick="finalizeSave('ЖЕЛТАЯ ИЗО', 'yellow')">ЖЕЛТАЯ ИЗО</div>
-    <div style="margin-top: 20px; color: #aaa;" onclick="document.getElementById('modal-iso').style.display='none'">ОТМЕНА</div>
+    <div style="background:#800; width:200px; padding:20px; margin:10px; border-radius:15px; text-align:center;" onclick="finalizeSave('КРАСНАЯ ИЗО', 'red')">КРАСНАЯ ИЗО</div>
+    <div style="background:#880; width:200px; padding:20px; margin:10px; border-radius:15px; text-align:center;" onclick="finalizeSave('ЖЕЛТАЯ ИЗО', 'yellow')">ЖЕЛТАЯ ИЗО</div>
+    <div style="margin-top:20px" onclick="document.getElementById('modal-iso').style.display='none'">ОТМЕНА</div>
 </div>
 
 <input type="file" id="hiddenInput" accept="image/*" capture="environment" style="display:none" onchange="loadPhoto(this)">
 
 <div id="save-screen">
-    <p>ПРЕДПРОСМОТР</p>
-    <img id="save-img" style="max-width: 85%; max-height: 55%; border: 1px solid white;">
-    
-    <button class="btn-action save-btn" onclick="downloadImage()">📥 СКАЧАТЬ В ГАЛЕРЕЮ</button>
-    
-    <button class="btn-action back-btn" onclick="document.getElementById('save-screen').style.display='none'">← ВЕРНУТЬСЯ В РЕДАКТОР</button>
+    <img id="save-img" style="max-width: 90%; max-height: 60%; border: 1px solid white;">
+    <button class="btn-act" style="background:#28a745; color:white;" onclick="downloadImg()">СКАЧАТЬ В ГАЛЕРЕЮ</button>
+    <button class="btn-act" style="background:#444; color:white;" onclick="document.getElementById('save-screen').style.display='none'">← ВЕРНУТЬСЯ</button>
 </div>
 
 <script>
@@ -75,7 +66,7 @@
         const reader = new FileReader();
         reader.onload = (e) => {
             const img = new Image();
-            img.onload = () => { baseImage = img; render(); };
+            img.onload = () => { baseImage = img; currentNote = ""; render(); };
             img.src = e.target.result;
         };
         reader.readAsDataURL(input.files[0]);
@@ -106,16 +97,8 @@
         }
     }
 
-    // Рисование
-    canvas.addEventListener('touchstart', e => { 
-        drawing = true; lastX = e.touches[0].clientX; lastY = e.touches[0].clientY; 
-        ctx.beginPath(); ctx.moveTo(lastX, lastY);
-    });
-    canvas.addEventListener('touchmove', e => {
-        if (!drawing) return; e.preventDefault();
-        ctx.strokeStyle = "red"; ctx.lineWidth = 4; ctx.lineCap = "round";
-        ctx.lineTo(e.touches[0].clientX, e.touches[0].clientY); ctx.stroke();
-    });
+    canvas.addEventListener('touchstart', e => { drawing = true; lastX = e.touches[0].clientX; lastY = e.touches[0].clientY; ctx.beginPath(); ctx.moveTo(lastX, lastY); });
+    canvas.addEventListener('touchmove', e => { if (!drawing) return; e.preventDefault(); ctx.strokeStyle = "red"; ctx.lineWidth = 4; ctx.lineCap = "round"; ctx.lineTo(e.touches[0].clientX, e.touches[0].clientY); ctx.stroke(); });
     canvas.addEventListener('touchend', () => { drawing = false; saveStep(); });
 
     function stampGPS() {
@@ -139,33 +122,19 @@
         ctx.fillStyle = color; ctx.font = "bold 14px Arial"; ctx.textAlign = "center";
         ctx.fillText(label, 90, 33);
         document.getElementById('modal-iso').style.display = 'none';
-        
-        // Показ экрана сохранения
-        const dataUrl = canvas.toDataURL("image/png");
-        document.getElementById('save-img').src = dataUrl;
+        document.getElementById('save-img').src = canvas.toDataURL("image/png");
         document.getElementById('save-screen').style.display = 'flex';
     }
 
-    // ФУНКЦИЯ СКАЧИВАНИЯ С УНИКАЛЬНЫМ ИМЕНЕМ
-    function downloadImage() {
-        const date = new Date();
-        const timestamp = `${date.getDate()}-${date.getMonth()+1}_${date.getHours()}${date.getMinutes()}${date.getSeconds()}`;
-        const fileName = `photo_${timestamp}.png`;
-        
+    function downloadImg() {
         const link = document.createElement('a');
-        link.download = fileName;
+        link.download = `photo_${Date.now()}.png`; // Уникальное имя по времени
         link.href = canvas.toDataURL("image/png");
         link.click();
     }
 
     function saveStep() { history.push(canvas.toDataURL()); if(history.length > 15) history.shift(); }
-    function undo() {
-        if(history.length > 1) {
-            history.pop(); const i = new Image();
-            i.onload = () => { ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(i,0,0); };
-            i.src = history[history.length-1];
-        }
-    }
+    function undo() { if(history.length > 1) { history.pop(); const i = new Image(); i.onload = () => { ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(i,0,0); }; i.src = history[history.length-1]; } }
 </script>
 </body>
 </html>
