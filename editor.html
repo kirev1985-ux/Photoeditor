@@ -2,22 +2,24 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>PhotoEditor v13</title>
+    <title>PhotoEditor V19</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         body { margin: 0; background: #000; font-family: sans-serif; overflow: hidden; color: white; touch-action: none; }
         canvas { display: block; background: #111; margin: 0 auto; }
-        #gps-live { position: fixed; top: 0; left: 0; width: 100%; background: rgba(0,0,0,0.8); color: #0f0; font-size: 11px; padding: 5px; text-align: center; z-index: 20; border-bottom: 1px solid #333; }
+        #gps-live { position: fixed; top: 0; left: 0; width: 100%; background: rgba(0,0,0,0.8); font-size: 11px; padding: 5px; text-align: center; z-index: 20; }
         #side-menu { position: fixed; right: 10px; top: 50px; display: flex; flex-direction: column; gap: 12px; z-index: 10; }
         .btn-side { width: 52px; height: 52px; background: #333; border: 1px solid #555; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; }
-        #bottom-menu { position: fixed; bottom: 30px; width: 100%; display: flex; justify-content: center; align-items: center; gap: 30px; z-index: 10; }
-        .btn-cam { width: 80px; height: 80px; background: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40px; border: 5px solid #444; color: #000; }
-        .btn-round { width: 55px; height: 55px; background: #444; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; }
-        #modal-iso, #save-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
-        .iso-btn { width: 250px; padding: 20px; margin: 10px; border-radius: 15px; font-weight: bold; text-align: center; border: 3px solid transparent; }
-        .red-iso { background: #600; border-color: red; }
-        .yellow-iso { background: #660; border-color: yellow; }
-        #save-img { max-width: 90%; max-height: 70%; border: 1px solid #fff; }
+        
+        /* ПОДНЯТОЕ МЕНЮ (чтобы не закрывать надпись) */
+        #bottom-menu { position: fixed; bottom: 110px; width: 100%; display: flex; justify-content: center; align-items: center; gap: 30px; z-index: 10; }
+        
+        .btn-cam { width: 80px; height: 80px; background: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40px; color: #000; border: 5px solid #444; }
+        #save-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 3000; }
+        .save-ui-btn { width: 85%; padding: 20px; margin: 10px; border-radius: 15px; font-weight: bold; font-size: 18px; text-align: center; border: none; }
+        .green-save { background: #28a745; color: white; }
+        .gray-back { background: #555; color: white; }
+        #modal-iso { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 1001; }
     </style>
 </head>
 <body>
@@ -32,38 +34,40 @@
 </div>
 
 <div id="bottom-menu">
-    <div class="btn-round" onclick="undo()">↩️</div>
+    <div class="btn-side" onclick="undo()">↩️</div>
     <div class="btn-cam" onclick="document.getElementById('hiddenInput').click()">📷</div>
-    <div class="btn-round" onclick="location.reload()">🔄</div>
+    <div class="btn-side" onclick="location.reload()">🔄</div>
 </div>
 
 <div id="modal-iso">
-    <div class="iso-btn red-iso" onclick="finalizeSave('КРАСНАЯ ИЗО', 'red')">КРАСНАЯ ИЗО</div>
-    <div class="iso-btn yellow-iso" onclick="finalizeSave('ЖЕЛТАЯ ИЗО', 'yellow')">ЖЕЛТАЯ ИЗО</div>
-    <div style="padding: 15px; color: #888;" onclick="document.getElementById('modal-iso').style.display='none'">ОТМЕНА</div>
+    <div style="background:#b00; width:220px; padding:20px; margin:10px; border-radius:15px; text-align:center; font-weight:bold;" onclick="finalizeSave('КРАСНАЯ ИЗО', 'red')">КРАСНАЯ ИЗО</div>
+    <div style="background:#b80; width:220px; padding:20px; margin:10px; border-radius:15px; text-align:center; font-weight:bold;" onclick="finalizeSave('ЖЕЛТАЯ ИЗО', 'yellow')">ЖЕЛТАЯ ИЗО</div>
+    <div style="background:#0056b3; width:220px; padding:20px; margin:10px; border-radius:15px; text-align:center; font-weight:bold;" onclick="finalizeSave('КАМЕНЬ', '#007bff')">КАМЕНЬ</div>
+    <div style="margin-top:30px; color:#666" onclick="document.getElementById('modal-iso').style.display='none'">ОТМЕНА</div>
 </div>
 
 <input type="file" id="hiddenInput" accept="image/*" capture="environment" style="display:none" onchange="loadPhoto(this)">
 
-<div id="save-screen" onclick="this.style.display='none'">
-    <p>ЗАЖМИ ФОТО ДЛЯ СОХРАНЕНИЯ</p>
-    <img id="save-img">
+<div id="save-screen">
+    <img id="save-img" style="max-width: 90%; max-height: 50%; border: 2px solid white; margin-bottom: 20px;">
+    <button class="save-ui-btn green-save" onclick="downloadImg()">💾 СКАЧАТЬ В ГАЛЕРЕЮ</button>
+    <button class="save-ui-btn gray-back" onclick="document.getElementById('save-screen').style.display='none'">← ВЕРНУТЬСЯ В РЕДАКТОР</button>
 </div>
 
 <script>
     const canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d');
-    let history = [], currentNote = "", lastGPS = { lat: 0, lon: 0, acc: 0 };
-    let baseImage = null, drawing = false, lastX = 0, lastY = 0;
+    let history = [], currentNote = "", lastGPS = { lat: 0, lon: 0, acc: 0 }, baseImage = null;
+    let drawing = false, lastX = 0, lastY = 0;
 
     window.onload = () => {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-        ctx.fillStyle = '#111'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
         navigator.geolocation.watchPosition(p => {
             lastGPS = { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy };
-            document.getElementById('gps-live').innerText = `GPS: ${lastGPS.lat.toFixed(6)}, ${lastGPS.lon.toFixed(6)} (±${lastGPS.acc.toFixed(1)}м)`;
+            const gpsDiv = document.getElementById('gps-live');
+            // ЦВЕТ ПОГРЕШНОСТИ
+            gpsDiv.style.color = lastGPS.acc > 15 ? '#ff4444' : '#00ff00';
+            gpsDiv.innerText = `GPS: ${lastGPS.lat.toFixed(6)}, ${lastGPS.lon.toFixed(6)} (±${lastGPS.acc.toFixed(1)}м)`;
         }, null, { enableHighAccuracy: true });
-        saveStep();
     };
 
     function loadPhoto(input) {
@@ -85,74 +89,62 @@
         ctx.fillStyle = "#000"; ctx.fillRect(0,0, canvas.width, canvas.height);
         ctx.drawImage(baseImage, (canvas.width - w)/2, (canvas.height - h)/2, w, h);
         
-        // Отрисовка описания (СНИЗУ, над координатами)
         if (currentNote) {
-            ctx.font = "16px Arial";
+            ctx.font = "bold 18px Arial";
             const words = currentNote.split(' '), lines = []; let line = '';
             for (let n = 0; n < words.length; n++) {
                 let test = line + words[n] + ' ';
-                if (ctx.measureText(test).width > canvas.width - 40 && n > 0) { lines.push(line); line = words[n] + ' '; }
+                if (ctx.measureText(test).width > canvas.width - 40) { lines.push(line); line = words[n] + ' '; }
                 else { line = test; }
             }
             lines.push(line);
-            const lineH = 22, boxH = lines.length * lineH + 10;
-            const yPos = canvas.height - 40 - boxH; // Располагаем прямо над GPS-штампом
-            ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(0, yPos, canvas.width, boxH);
+            const boxH = lines.length * 25 + 15;
+            ctx.fillStyle = "rgba(0,0,0,0.7)"; 
+            ctx.fillRect(0, canvas.height - 40 - boxH, canvas.width, boxH);
             ctx.fillStyle = "white"; ctx.textAlign = "center";
-            lines.forEach((l, i) => ctx.fillText(l, canvas.width/2, yPos + 20 + (i*lineH)));
-            ctx.textAlign = "left";
+            lines.forEach((l, i) => ctx.fillText(l.trim(), canvas.width/2, (canvas.height - 35 - boxH) + 22 + (i*25)));
         }
     }
 
-    canvas.addEventListener('touchstart', e => { 
-        drawing = true; 
-        lastX = e.touches[0].clientX; lastY = e.touches[0].clientY; 
-    });
-    canvas.addEventListener('touchmove', e => {
-        if (!drawing) return; e.preventDefault();
-        ctx.strokeStyle = "red"; ctx.lineWidth = 4; ctx.lineCap = "round";
-        ctx.beginPath(); ctx.moveTo(lastX, lastY); 
-        ctx.lineTo(e.touches[0].clientX, e.touches[0].clientY); ctx.stroke();
-        lastX = e.touches[0].clientX; lastY = e.touches[0].clientY;
-    });
+    canvas.addEventListener('touchstart', e => { drawing = true; lastX = e.touches[0].clientX; lastY = e.touches[0].clientY; ctx.beginPath(); ctx.moveTo(lastX, lastY); });
+    canvas.addEventListener('touchmove', e => { if (!drawing) return; e.preventDefault(); ctx.strokeStyle = "red"; ctx.lineWidth = 4; ctx.lineCap = "round"; ctx.lineTo(e.touches[0].clientX, e.touches[0].clientY); ctx.stroke(); });
     canvas.addEventListener('touchend', () => { drawing = false; saveStep(); });
 
-    // GPS ШТАМП (СНИЗУ САМЫМ НИЖНИМ СЛОЕМ)
     function stampGPS() {
         const txt = `📍 ${lastGPS.lat.toFixed(6)}, ${lastGPS.lon.toFixed(6)} (±${lastGPS.acc.toFixed(1)}м)`;
         ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(0, canvas.height - 40, canvas.width, 40);
-        ctx.fillStyle = "white"; ctx.font = "16px Arial"; ctx.textAlign = "center";
+        ctx.fillStyle = (lastGPS.acc > 15) ? "#ff4444" : "#00ff00"; // Цвет штампа тоже зависит от точности
+        ctx.font = "bold 16px Arial"; ctx.textAlign = "center";
         ctx.fillText(txt, canvas.width/2, canvas.height - 15);
-        ctx.textAlign = "left"; saveStep();
+        saveStep();
     }
 
     function updateNote() {
-        const n = prompt("Введите описание:", currentNote);
+        const n = prompt("Описание:", currentNote);
         if (n !== null) { currentNote = n; render(); saveStep(); }
     }
 
     function showIsoMenu() { document.getElementById('modal-iso').style.display = 'flex'; }
 
-    // ЦВЕТ ИЗО (СВЕРХУ)
     function finalizeSave(label, color) {
-        ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(10, 45, 160, 35);
-        ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.strokeRect(10, 45, 160, 35);
+        ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(10, 45, 170, 40);
+        ctx.strokeStyle = color; ctx.lineWidth = 4; ctx.strokeRect(10, 45, 170, 40);
         ctx.fillStyle = color; ctx.font = "bold 14px Arial"; ctx.textAlign = "center";
-        ctx.fillText(label, 90, 68); ctx.textAlign = "left";
-        
+        ctx.fillText(label, 95, 71);
         document.getElementById('modal-iso').style.display = 'none';
         document.getElementById('save-img').src = canvas.toDataURL("image/png");
         document.getElementById('save-screen').style.display = 'flex';
     }
 
-    function saveStep() { history.push(canvas.toDataURL()); if(history.length > 20) history.shift(); }
-    function undo() { 
-        if(history.length > 1) { 
-            history.pop(); const i = new Image(); 
-            i.onload = () => { ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(i,0,0); }; 
-            i.src = history[history.length-1]; 
-        } 
+    function downloadImg() {
+        const link = document.createElement('a');
+        link.download = `img_${Date.now()}.png`;
+        link.href = canvas.toDataURL("image/png");
+        link.click();
     }
+
+    function saveStep() { history.push(canvas.toDataURL()); if(history.length > 10) history.shift(); }
+    function undo() { if(history.length > 1) { history.pop(); const i = new Image(); i.onload = () => { ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(i,0,0); }; i.src = history[history.length-1]; } }
 </script>
 </body>
 </html>
