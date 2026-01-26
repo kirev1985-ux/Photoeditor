@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>PhotoEditor V22 - AutoText</title>
+    <title>PhotoEditor V23 - Entrance Added</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         body { margin: 0; background: #000; font-family: sans-serif; overflow: hidden; color: white; touch-action: none; }
@@ -16,8 +16,7 @@
         #save-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 3000; }
         .save-ui-btn { width: 85%; padding: 20px; margin: 10px; border-radius: 15px; font-weight: bold; font-size: 18px; text-align: center; border: none; }
         #modal-iso { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 1001; }
-        .iso-choice { width: 240px; padding: 20px; margin: 10px; border-radius: 15px; text-align: center; font-weight: bold; font-size: 18px; }
-        /* Индикатор галочки */
+        .iso-choice { width: 240px; padding: 18px; margin: 8px; border-radius: 15px; text-align: center; font-weight: bold; font-size: 16px; }
         #sticky-indicator { font-size: 12px; color: #0f0; display: none; position: absolute; top: -5px; right: -5px; background: #000; border-radius: 50%; width: 18px; height: 18px; text-align: center; border: 1px solid #0f0; }
     </style>
 </head>
@@ -43,11 +42,13 @@
 </div>
 
 <div id="modal-iso">
-    <h3 id="iso-title">ВЫБЕРИТЕ ТИП:</h3>
+    <h3 id="iso-title" style="margin-bottom: 10px;">ВЫБЕРИТЕ ТИП:</h3>
     <div class="iso-choice" style="background:#b00; border: 2px solid white;" onclick="setIso('КРАСНАЯ ИЗО', 'red')">КРАСНАЯ ИЗО</div>
     <div class="iso-choice" style="background:#b80; border: 2px solid white;" onclick="setIso('ЖЕЛТАЯ ИЗО', 'yellow')">ЖЕЛТАЯ ИЗО</div>
     <div class="iso-choice" style="background:#0056b3; border: 2px solid white;" onclick="setIso('КАМЕНЬ', '#007bff')">КАМЕНЬ</div>
-    <div style="margin-top:30px; color:#aaa" onclick="document.getElementById('modal-iso').style.display='none'">ОТМЕНА</div>
+    <div class="iso-choice" style="background:#555; border: 2px solid white;" onclick="setIso('ПОДЪЕЗД', '#ccc')">ПОДЪЕЗД</div>
+    
+    <div style="margin-top:20px; color:#aaa" onclick="document.getElementById('modal-iso').style.display='none'">ОТМЕНА</div>
 </div>
 
 <input type="file" id="hiddenInput" accept="image/*" capture="environment" style="display:none" onchange="loadPhoto(this)">
@@ -61,11 +62,7 @@
 <script>
     const canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d');
     let history = [], baseImage = null;
-    
-    let currentNote = "";
-    let isStickyNote = false; // Галка "по умолчанию"
-    let gpsStamp = null;
-    let isoStamp = null;
+    let currentNote = "", isStickyNote = false, gpsStamp = null, isoStamp = null;
     let lastGPS = { lat: 0, lon: 0, acc: 0 };
 
     window.onload = () => {
@@ -85,8 +82,7 @@
             const img = new Image();
             img.onload = () => { 
                 baseImage = img; 
-                // Если галка НЕ стоит, стираем текст. Если СТОИТ — оставляем.
-                if (!isStickyNote) { currentNote = ""; }
+                if (!isStickyNote) currentNote = "";
                 gpsStamp = null; isoStamp = null; 
                 render(); 
             };
@@ -99,7 +95,6 @@
         if (!baseImage) return;
         const ratio = Math.min(canvas.width / baseImage.width, canvas.height / baseImage.height);
         const w = baseImage.width * ratio, h = baseImage.height * ratio;
-        
         ctx.clearRect(0,0, canvas.width, canvas.height);
         ctx.fillStyle = "#000"; ctx.fillRect(0,0, canvas.width, canvas.height);
         ctx.drawImage(baseImage, (canvas.width - w)/2, (canvas.height - h)/2, w, h);
@@ -142,24 +137,17 @@
     canvas.addEventListener('touchend', () => { drawing = false; saveStep(); });
 
     function toggleGPS() {
-        gpsStamp = {
-            text: `📍 ${lastGPS.lat.toFixed(6)}, ${lastGPS.lon.toFixed(6)} (±${lastGPS.acc.toFixed(1)}м)`,
-            acc: lastGPS.acc
-        };
-        render();
-        saveStep();
+        gpsStamp = { text: `📍 ${lastGPS.lat.toFixed(6)}, ${lastGPS.lon.toFixed(6)} (±${lastGPS.acc.toFixed(1)}м)`, acc: lastGPS.acc };
+        render(); saveStep();
     }
 
     function updateNote() {
         const n = prompt("Описание:", currentNote);
         if (n !== null) {
             currentNote = n;
-            // Спрашиваем про "По умолчанию"
-            const fix = confirm("Закрепить это описание для всех фото?");
-            isStickyNote = fix;
-            document.getElementById('sticky-indicator').style.display = fix ? 'block' : 'none';
-            render();
-            saveStep();
+            isStickyNote = confirm("Закрепить это описание для всех фото?");
+            document.getElementById('sticky-indicator').style.display = isStickyNote ? 'block' : 'none';
+            render(); saveStep();
         }
     }
 
@@ -170,11 +158,9 @@
     }
 
     function setIso(label, color) {
-        isoStamp.label = label;
-        isoStamp.color = color;
+        isoStamp.label = label; isoStamp.color = color;
         document.getElementById('modal-iso').style.display = 'none';
-        render();
-        saveStep();
+        render(); saveStep();
         setTimeout(() => {
             document.getElementById('save-img').src = canvas.toDataURL("image/png");
             document.getElementById('save-screen').style.display = 'flex';
@@ -191,8 +177,7 @@
     function saveStep() { history.push(canvas.toDataURL()); if(history.length > 15) history.shift(); }
     function undo() {
         if(history.length > 1) {
-            history.pop();
-            const i = new Image();
+            history.pop(); const i = new Image();
             i.onload = () => { ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(i,0,0); };
             i.src = history[history.length-1];
         }
