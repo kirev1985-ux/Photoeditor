@@ -2,11 +2,11 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>PhotoEditor V23 - Entrance Added</title>
+    <title>PhotoEditor V25 - Final Stable</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         body { margin: 0; background: #000; font-family: sans-serif; overflow: hidden; color: white; touch-action: none; }
-        canvas { display: block; background: #111; margin: 0 auto; }
+        canvas { display: block; background: #111; margin: 0 auto; touch-action: none; }
         #gps-live { position: fixed; top: 0; left: 0; width: 100%; background: rgba(0,0,0,0.8); font-size: 11px; padding: 5px; text-align: center; z-index: 20; }
         #side-menu { position: fixed; right: 10px; top: 50px; display: flex; flex-direction: column; gap: 12px; z-index: 10; }
         .btn-side { width: 56px; height: 56px; background: #333; border: 1px solid #555; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 22px; }
@@ -42,21 +42,20 @@
 </div>
 
 <div id="modal-iso">
-    <h3 id="iso-title" style="margin-bottom: 10px;">ВЫБЕРИТЕ ТИП:</h3>
+    <h3>ВЫБЕРИТЕ ТИП:</h3>
     <div class="iso-choice" style="background:#b00; border: 2px solid white;" onclick="setIso('КРАСНАЯ ИЗО', 'red')">КРАСНАЯ ИЗО</div>
     <div class="iso-choice" style="background:#b80; border: 2px solid white;" onclick="setIso('ЖЕЛТАЯ ИЗО', 'yellow')">ЖЕЛТАЯ ИЗО</div>
     <div class="iso-choice" style="background:#0056b3; border: 2px solid white;" onclick="setIso('КАМЕНЬ', '#007bff')">КАМЕНЬ</div>
     <div class="iso-choice" style="background:#555; border: 2px solid white;" onclick="setIso('ПОДЪЕЗД', '#ccc')">ПОДЪЕЗД</div>
-    
     <div style="margin-top:20px; color:#aaa" onclick="document.getElementById('modal-iso').style.display='none'">ОТМЕНА</div>
 </div>
 
 <input type="file" id="hiddenInput" accept="image/*" capture="environment" style="display:none" onchange="loadPhoto(this)">
 
 <div id="save-screen">
-    <img id="save-img" style="max-width: 90%; max-height: 50%; border: 2px solid white; margin-bottom: 20px;">
+    <img id="save-img" style="max-width: 90%; max-height: 55%; border: 2px solid white; margin-bottom: 20px;">
     <button class="save-ui-btn" style="background:#28a745; color:white;" onclick="downloadImg()">💾 СКАЧАТЬ В ГАЛЕРЕЮ</button>
-    <button class="save-ui-btn" style="background:#555; color:white;" onclick="document.getElementById('save-screen').style.display='none'">← ВЕРНУТЬСЯ</button>
+    <button class="save-ui-btn" style="background:#555; color:white;" onclick="closeSave()">← ВЕРНУТЬСЯ</button>
 </div>
 
 <script>
@@ -64,9 +63,11 @@
     let history = [], baseImage = null;
     let currentNote = "", isStickyNote = false, gpsStamp = null, isoStamp = null;
     let lastGPS = { lat: 0, lon: 0, acc: 0 };
+    let drawing = false;
 
     window.onload = () => {
-        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
         navigator.geolocation.watchPosition(p => {
             lastGPS = { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy };
             const gpsDiv = document.getElementById('gps-live');
@@ -83,8 +84,9 @@
             img.onload = () => { 
                 baseImage = img; 
                 if (!isStickyNote) currentNote = "";
-                gpsStamp = null; isoStamp = null; 
+                gpsStamp = null; isoStamp = null; history = [];
                 render(); 
+                saveStep();
             };
             img.src = e.target.result;
         };
@@ -95,10 +97,13 @@
         if (!baseImage) return;
         const ratio = Math.min(canvas.width / baseImage.width, canvas.height / baseImage.height);
         const w = baseImage.width * ratio, h = baseImage.height * ratio;
-        ctx.clearRect(0,0, canvas.width, canvas.height);
         ctx.fillStyle = "#000"; ctx.fillRect(0,0, canvas.width, canvas.height);
         ctx.drawImage(baseImage, (canvas.width - w)/2, (canvas.height - h)/2, w, h);
         
+        drawUI(); // Рисуем текст и метки поверх
+    }
+
+    function drawUI() {
         if (isoStamp) {
             ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(10, 45, 170, 55);
             ctx.strokeStyle = isoStamp.color; ctx.lineWidth = 3; ctx.strokeRect(10, 45, 170, 55);
@@ -106,7 +111,6 @@
             ctx.fillText(isoStamp.type, 95, 65);
             ctx.fillStyle = isoStamp.color; ctx.fillText(isoStamp.label, 95, 87);
         }
-
         if (currentNote) {
             ctx.font = "bold 18px Arial";
             const words = currentNote.split(' '), lines = []; let line = '';
@@ -117,12 +121,10 @@
             }
             lines.push(line);
             const boxH = lines.length * 25 + 15;
-            ctx.fillStyle = "rgba(0,0,0,0.7)"; 
-            ctx.fillRect(0, canvas.height - 40 - boxH, canvas.width, boxH);
+            ctx.fillStyle = "rgba(0,0,0,0.7)"; ctx.fillRect(0, canvas.height - 40 - boxH, canvas.width, boxH);
             ctx.fillStyle = "white"; ctx.textAlign = "center";
             lines.forEach((l, i) => ctx.fillText(l.trim(), canvas.width/2, (canvas.height - 35 - boxH) + 22 + (i*25)));
         }
-
         if (gpsStamp) {
             ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(0, canvas.height - 40, canvas.width, 40);
             ctx.fillStyle = gpsStamp.acc > 15 ? "#ff4444" : "#00ff00";
@@ -131,40 +133,42 @@
         }
     }
 
-    let drawing = false, lastX = 0, lastY = 0;
-    canvas.addEventListener('touchstart', e => { drawing = true; lastX = e.touches[0].clientX; lastY = e.touches[0].clientY; ctx.beginPath(); ctx.moveTo(lastX, lastY); });
-    canvas.addEventListener('touchmove', e => { if (!drawing) return; e.preventDefault(); ctx.strokeStyle = "red"; ctx.lineWidth = 4; ctx.lineCap = "round"; ctx.lineTo(e.touches[0].clientX, e.touches[0].clientY); ctx.stroke(); });
+    // Рисование прямо на основном холсте
+    canvas.addEventListener('touchstart', e => { 
+        drawing = true; 
+        ctx.beginPath(); 
+        ctx.moveTo(e.touches[0].clientX, e.touches[0].clientY); 
+    });
+    canvas.addEventListener('touchmove', e => { 
+        if (!drawing) return; e.preventDefault(); 
+        ctx.strokeStyle = "red"; ctx.lineWidth = 4; ctx.lineCap = "round";
+        ctx.lineTo(e.touches[0].clientX, e.touches[0].clientY); 
+        ctx.stroke();
+    });
     canvas.addEventListener('touchend', () => { drawing = false; saveStep(); });
 
     function toggleGPS() {
         gpsStamp = { text: `📍 ${lastGPS.lat.toFixed(6)}, ${lastGPS.lon.toFixed(6)} (±${lastGPS.acc.toFixed(1)}м)`, acc: lastGPS.acc };
-        render(); saveStep();
+        render(); drawUI(); saveStep();
     }
 
     function updateNote() {
         const n = prompt("Описание:", currentNote);
         if (n !== null) {
             currentNote = n;
-            isStickyNote = confirm("Закрепить это описание для всех фото?");
+            isStickyNote = confirm("Закрепить это описание?");
             document.getElementById('sticky-indicator').style.display = isStickyNote ? 'block' : 'none';
-            render(); saveStep();
+            render(); drawUI(); saveStep();
         }
     }
 
-    function startSave(type) {
-        isoStamp = { type: type };
-        document.getElementById('iso-title').innerText = type;
-        document.getElementById('modal-iso').style.display = 'flex';
-    }
-
-    function setIso(label, color) {
-        isoStamp.label = label; isoStamp.color = color;
+    function startSave(t) { isoStamp = { type: t }; document.getElementById('modal-iso').style.display = 'flex'; }
+    function setIso(l, c) {
+        isoStamp.label = l; isoStamp.color = c;
         document.getElementById('modal-iso').style.display = 'none';
-        render(); saveStep();
-        setTimeout(() => {
-            document.getElementById('save-img').src = canvas.toDataURL("image/png");
-            document.getElementById('save-screen').style.display = 'flex';
-        }, 100);
+        render(); drawUI();
+        document.getElementById('save-img').src = canvas.toDataURL("image/png");
+        document.getElementById('save-screen').style.display = 'flex';
     }
 
     function downloadImg() {
@@ -174,12 +178,14 @@
         link.click();
     }
 
-    function saveStep() { history.push(canvas.toDataURL()); if(history.length > 15) history.shift(); }
+    function closeSave() { document.getElementById('save-screen').style.display = 'none'; }
+    function saveStep() { history.push(canvas.toDataURL()); if(history.length > 10) history.shift(); }
     function undo() {
         if(history.length > 1) {
-            history.pop(); const i = new Image();
-            i.onload = () => { ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(i,0,0); };
-            i.src = history[history.length-1];
+            history.pop();
+            const img = new Image();
+            img.onload = () => { ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(img,0,0); };
+            img.src = history[history.length-1];
         }
     }
 </script>
