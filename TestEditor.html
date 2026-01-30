@@ -2,16 +2,16 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>PhotoEditor V26 - Ink Fix</title>
+    <title>PhotoEditor V27 - Address Fix</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         body { margin: 0; background: #000; font-family: sans-serif; overflow: hidden; color: white; touch-action: none; }
         canvas { display: block; background: #111; margin: 0 auto; touch-action: none; }
-        #gps-live { position: fixed; top: 0; left: 0; width: 100%; background: rgba(0,0,0,0.8); font-size: 11px; padding: 5px; text-align: center; z-index: 20; }
+        #gps-live { position: fixed; top: 0; left: 0; width: 100%; background: rgba(0,0,0,0.8); font-size: 10px; padding: 5px; text-align: center; z-index: 20; line-height: 1.2; }
         #side-menu { position: fixed; right: 10px; top: 50px; display: flex; flex-direction: column; gap: 12px; z-index: 10; }
         .btn-side { width: 56px; height: 56px; background: #333; border: 1px solid #555; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 22px; }
         .btn-label { font-size: 10px; font-weight: bold; margin-top: -2px; }
-        #bottom-menu { position: fixed; bottom: 110px; width: 100%; display: center; justify-content: center; align-items: center; gap: 30px; z-index: 10; display: flex; }
+        #bottom-menu { position: fixed; bottom: 110px; width: 100%; display: flex; justify-content: center; align-items: center; gap: 30px; z-index: 10; }
         .btn-cam { width: 80px; height: 80px; background: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40px; color: #000; border: 5px solid #444; }
         #save-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 3000; }
         .save-ui-btn { width: 85%; padding: 20px; margin: 10px; border-radius: 15px; font-weight: bold; font-size: 18px; text-align: center; border: none; }
@@ -22,7 +22,7 @@
 </head>
 <body>
 
-<div id="gps-live">Ожидание GPS...</div>
+<div id="gps-live">Ожидание GPS и адреса...</div>
 <canvas id="canvas"></canvas>
 
 <div id="side-menu">
@@ -53,30 +53,45 @@
 <input type="file" id="hiddenInput" accept="image/*" capture="environment" style="display:none" onchange="loadPhoto(this)">
 
 <div id="save-screen">
-    <img id="save-img" style="max-width: 90%; max-height: 55%; border: 2px solid white; margin-bottom: 20px;">
+    <img id="save-img" style="max-width: 90%; max-height: 50%; border: 2px solid white; margin-bottom: 20px;">
     <button class="save-ui-btn" style="background:#28a745; color:white;" onclick="downloadImg()">💾 СКАЧАТЬ В ГАЛЕРЕЮ</button>
-    <button class="save-ui-btn" style="background:#555; color:white;" onclick="closeSave()">← ВЕРНУТЬСЯ</button>
+    <button class="save-ui-btn" style="background:#555; color:white;" onclick="document.getElementById('save-screen').style.display='none'">← ВЕРНУТЬСЯ</button>
 </div>
 
 <script>
     const canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d');
-    const inkCanvas = document.createElement('canvas'); // Скрытый холст для хранения рисунка
+    const inkCanvas = document.createElement('canvas');
     const ictx = inkCanvas.getContext('2d');
 
     let history = [], baseImage = null;
     let currentNote = "", isStickyNote = false, gpsStamp = null, isoStamp = null;
-    let lastGPS = { lat: 0, lon: 0, acc: 0 }, drawing = false;
+    let lastGPS = { lat: 0, lon: 0, acc: 0, address: "Определяем адрес..." };
 
     window.onload = () => {
         canvas.width = window.innerWidth; canvas.height = window.innerHeight;
         inkCanvas.width = canvas.width; inkCanvas.height = canvas.height;
+        
         navigator.geolocation.watchPosition(p => {
-            lastGPS = { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy };
-            const gDiv = document.getElementById('gps-live');
-            gDiv.style.color = lastGPS.acc > 15 ? '#ff4444' : '#00ff00';
-            gDiv.innerText = `GPS: ${lastGPS.lat.toFixed(6)}, ${lastGPS.lon.toFixed(6)} (±${lastGPS.acc.toFixed(1)}м)`;
+            lastGPS.lat = p.coords.latitude;
+            lastGPS.lon = p.coords.longitude;
+            lastGPS.acc = p.coords.accuracy;
+            
+            // Запрос адреса при каждом значительном обновлении
+            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lastGPS.lat}&lon=${lastGPS.lon}&addressdetails=1`)
+                .then(res => res.json())
+                .then(data => {
+                    lastGPS.address = data.display_name.split(',').slice(0, 3).join(',');
+                    updateGPSUI();
+                })
+                .catch(() => { lastGPS.address = "Адрес не найден"; updateGPSUI(); });
         }, null, { enableHighAccuracy: true });
     };
+
+    function updateGPSUI() {
+        const gDiv = document.getElementById('gps-live');
+        gDiv.style.color = lastGPS.acc > 15 ? '#ff4444' : '#00ff00';
+        gDiv.innerHTML = `GPS: ${lastGPS.lat.toFixed(6)}, ${lastGPS.lon.toFixed(6)} (±${lastGPS.acc.toFixed(1)}м)<br>${lastGPS.address}`;
+    }
 
     function loadPhoto(input) {
         if (!input.files[0]) return;
@@ -101,10 +116,7 @@
         const w = baseImage.width*ratio, h = baseImage.height*ratio;
         ctx.fillStyle = "#000"; ctx.fillRect(0,0,canvas.width,canvas.height);
         ctx.drawImage(baseImage, (canvas.width-w)/2, (canvas.height-h)/2, w, h);
-        
-        // НАКЛАДЫВАЕМ РИСУНОК ПОВЕРХ ФОТО
         ctx.drawImage(inkCanvas, 0, 0);
-        
         drawUI();
     }
 
@@ -126,19 +138,21 @@
             }
             lines.push(line);
             const boxH = lines.length*25 + 15;
-            ctx.fillStyle = "rgba(0,0,0,0.7)"; ctx.fillRect(0, canvas.height-40-boxH, canvas.width, boxH);
+            ctx.fillStyle = "rgba(0,0,0,0.7)"; ctx.fillRect(0, canvas.height-55-boxH, canvas.width, boxH);
             ctx.fillStyle = "white"; ctx.textAlign = "center";
-            lines.forEach((l, i) => ctx.fillText(l.trim(), canvas.width/2, (canvas.height-35-boxH)+22+(i*25)));
+            lines.forEach((l, i) => ctx.fillText(l.trim(), canvas.width/2, (canvas.height-50-boxH)+22+(i*25)));
         }
         if (gpsStamp) {
-            ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(0, canvas.height-40, canvas.width, 40);
+            ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(0, canvas.height-55, canvas.width, 55);
             ctx.fillStyle = gpsStamp.acc > 15 ? "#ff4444" : "#00ff00";
-            ctx.font = "bold 16px Arial"; ctx.textAlign = "center";
-            ctx.fillText(gpsStamp.text, canvas.width/2, canvas.height-15);
+            ctx.font = "bold 14px Arial"; ctx.textAlign = "center";
+            ctx.fillText(gpsStamp.coords, canvas.width/2, canvas.height-35);
+            ctx.font = "11px Arial"; ctx.fillStyle = "white";
+            ctx.fillText(gpsStamp.address, canvas.width/2, canvas.height-15);
         }
     }
 
-    // Рисуем на вспомогательном холсте, чтобы не стерлось
+    let drawing = false;
     canvas.addEventListener('touchstart', e => { 
         drawing = true; 
         ictx.beginPath(); ictx.moveTo(e.touches[0].clientX, e.touches[0].clientY); 
@@ -147,12 +161,16 @@
         if (!drawing) return; e.preventDefault(); 
         ictx.strokeStyle = "red"; ictx.lineWidth = 4; ictx.lineCap = "round";
         ictx.lineTo(e.touches[0].clientX, e.touches[0].clientY); ictx.stroke();
-        render(); // Обновляем основной экран
+        render();
     });
     canvas.addEventListener('touchend', () => { drawing = false; saveStep(); });
 
     function toggleGPS() {
-        gpsStamp = { text: `📍 ${lastGPS.lat.toFixed(6)}, ${lastGPS.lon.toFixed(6)} (±${lastGPS.acc.toFixed(1)}м)`, acc: lastGPS.acc };
+        gpsStamp = { 
+            coords: `📍 ${lastGPS.lat.toFixed(6)}, ${lastGPS.lon.toFixed(6)} (±${lastGPS.acc.toFixed(1)}м)`,
+            address: lastGPS.address,
+            acc: lastGPS.acc 
+        };
         render(); saveStep();
     }
 
@@ -185,8 +203,7 @@
     function closeSave() { document.getElementById('save-screen').style.display = 'none'; }
     
     function saveStep() { 
-        // Сохраняем и фото, и рисунок в историю
-        history.push({img: baseImage ? baseImage.src : null, ink: inkCanvas.toDataURL()}); 
+        history.push({ink: inkCanvas.toDataURL()}); 
         if(history.length > 10) history.shift(); 
     }
 
