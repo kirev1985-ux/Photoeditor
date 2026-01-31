@@ -2,176 +2,212 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>V43 PRO</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
 <style>
 body {
-    margin:0;
-    background:#000;
-    color:#fff;
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial;
-    height:100vh;
-    display:flex;
-    flex-direction:column;
-    overflow:hidden;
+  margin:0;
+  background:#000;
+  color:#fff;
+  font-family:-apple-system,BlinkMacSystemFont,Roboto,Arial;
+  height:100vh;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
 }
 
-#view { flex:1; position:relative; background:#000; }
+#top {
+  background:#000;
+  padding:6px 10px;
+  font-size:12px;
+}
+
+#coords { font-family:monospace; }
+#coords.good { color:#0f0 }
+#coords.bad { color:#f00 }
+
+#view {
+  position:relative;
+  width:100%;
+  aspect-ratio:4/3;
+  background:#000;
+}
+
 video, canvas {
-    position:absolute;
-    width:100%;
-    height:100%;
-    object-fit:cover;
+  position:absolute;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+
+#bottom {
+  background:#000;
+  padding:10px;
 }
 
 .toolbar {
-    display:grid;
-    grid-template-columns:repeat(4,1fr);
-    gap:8px;
-    padding:12px;
-    background:#111;
+  display:flex;
+  justify-content:space-around;
+  margin:10px 0;
 }
 
-.action {
-    font-size:20px;
-    padding:14px;
-    border-radius:12px;
-    border:none;
-    background:#333;
-    color:#fff;
+button {
+  background:#222;
+  color:#fff;
+  border:none;
+  border-radius:10px;
+  padding:12px;
+  font-size:18px;
+}
+
+input {
+  width:100%;
+  padding:10px;
+  border-radius:8px;
+  border:1px solid #444;
+  background:#111;
+  color:#fff;
 }
 </style>
 </head>
 
 <body>
 
-<div id="view">
-    <video id="video" playsinline></video>
-    <canvas id="canvas"></canvas>
+<div id="top">
+  🛰 <span id="coords">0,0 (±0м)</span><br>
+  <span id="addr">Определение адреса…</span><br>
+  <b id="typeLabel"></b>
 </div>
 
-<div class="toolbar">
-    <button class="action" onclick="startCamera()">📷</button>
-    <button class="action" onclick="snapshot()">🖼</button>
-    <button class="action" onclick="sendToBot()">✅</button>
-    <button class="action" onclick="clearCanvas()">🔄</button>
+<div id="view">
+  <video id="video" playsinline></video>
+  <canvas id="photo"></canvas>
+  <canvas id="draw"></canvas>
+</div>
+
+<div id="bottom">
+  <div class="toolbar">
+    <button onclick="startCam()">📷</button>
+    <button onclick="undo()">↩️</button>
+    <button onclick="saveMenu()">💾</button>
+  </div>
+
+  <input id="text" placeholder="Описание…">
+  <button onclick="togglePin()">📌</button>
 </div>
 
 <script>
-/* ================== INIT ================== */
-const tg = window.Telegram.WebApp;
+const tg = Telegram.WebApp;
 tg.expand();
 
 const video = document.getElementById('video');
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
+const photo = document.getElementById('photo');
+const draw = document.getElementById('draw');
+const pctx = photo.getContext('2d');
+const dctx = draw.getContext('2d');
 
-let stream = null;
-let lastImage = null;
+let pinnedText = '';
+let pin = false;
+let drawing = false;
+let sx, sy;
+let history = [];
 
-let coords = '0,0';
-let acc = 0;
-let addr = '';
+let coords='0,0', acc=0, addr='';
+let type='', iso='', isoColor='white';
 
-/* ================== CAMERA ================== */
-async function startCamera() {
-    try {
-        stream = await navigator.mediaDevices.getUserMedia({
-            video: { width:{ideal:1920}, height:{ideal:1080} },
-            audio:false
-        });
-        video.srcObject = stream;
-        await video.play();
-        resizeCanvas();
-    } catch (e) {
-        alert("❌ Камера недоступна в Telegram");
-        console.error(e);
-    }
+/* CAMERA */
+async function startCam(){
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video:{ facingMode:{ exact:'environment' } },
+    audio:false
+  });
+  video.srcObject = stream;
+  await video.play();
+  resize();
+}
+function resize(){
+  const r = devicePixelRatio || 1;
+  photo.width = draw.width = video.videoWidth * r;
+  photo.height = draw.height = video.videoHeight * r;
+  pctx.scale(r,r);
+  dctx.scale(r,r);
 }
 
-function resizeCanvas() {
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = video.videoWidth * dpr;
-    canvas.height = video.videoHeight * dpr;
-    ctx.setTransform(dpr,0,0,dpr,0,0);
-}
-
-/* ================== GEO ================== */
+/* GEO */
 navigator.geolocation.watchPosition(p=>{
-    coords = `${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}`;
-    acc = Math.round(p.coords.accuracy);
-    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${p.coords.latitude}&lon=${p.coords.longitude}`)
-        .then(r=>r.json())
-        .then(d=> addr = d.display_name || '');
-},{}, {enableHighAccuracy:true});
+  coords=`${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}`;
+  acc=Math.round(p.coords.accuracy);
+  const c=document.getElementById('coords');
+  c.textContent=`${coords} (±${acc}м)`;
+  c.className=acc>15?'bad':'good';
+  fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${p.coords.latitude}&lon=${p.coords.longitude}`)
+    .then(r=>r.json()).then(d=>addr=d.display_name||'');
+  document.getElementById('addr').textContent=addr;
+},{},{enableHighAccuracy:true});
 
-/* ================== SNAPSHOT ================== */
-function snapshot() {
-    if(!video.videoWidth) return alert("Камера не запущена");
-
-    const w = video.videoWidth;
-    const h = video.videoHeight;
-
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-
-    // Фото
-    ctx.drawImage(video,0,0,w,h);
-
-    // Нижняя панель
-    const barH = h * 0.18;
-    ctx.fillStyle = "rgba(0,0,0,0.75)";
-    ctx.fillRect(0,h-barH,w,barH);
-
-    // Координаты
-    ctx.fillStyle = acc > 15 ? "red" : "#0f0";
-    ctx.font = "bold 22px monospace";
-    ctx.fillText(`📍 ${coords} (±${acc}м)`,20,h-barH+30);
-
-    // Адрес
-    ctx.fillStyle = "#fff";
-    ctx.font = "16px Arial";
-    wrapText(addr,20,h-barH+60,w-40,18);
-
-    lastImage = canvas.toDataURL("image/jpeg",0.95);
+/* DRAW */
+draw.addEventListener('touchstart',e=>{
+  drawing=true;
+  const r=draw.getBoundingClientRect();
+  sx=(e.touches[0].clientX-r.left)*(draw.width/r.width);
+  sy=(e.touches[0].clientY-r.top)*(draw.height/r.height);
+});
+draw.addEventListener('touchend',e=>{
+  if(!drawing)return;
+  drawing=false;
+  const r=draw.getBoundingClientRect();
+  const ex=(e.changedTouches[0].clientX-r.left)*(draw.width/r.width);
+  const ey=(e.changedTouches[0].clientY-r.top)*(draw.height/r.height);
+  arrow(sx,sy,ex,ey);
+  history.push(dctx.getImageData(0,0,draw.width,draw.height));
+});
+function arrow(x1,y1,x2,y2){
+  dctx.strokeStyle='red';
+  dctx.lineWidth=8;
+  dctx.beginPath();
+  dctx.moveTo(x1,y1);
+  dctx.lineTo(x2,y2);
+  dctx.stroke();
 }
 
-/* ================== TEXT WRAP ================== */
-function wrapText(text,x,y,maxWidth,lineHeight){
-    const words=text.split(' ');
-    let line='';
-    for(let n=0;n<words.length;n++){
-        const test=line+words[n]+' ';
-        if(ctx.measureText(test).width>maxWidth){
-            ctx.fillText(line,x,y);
-            line=words[n]+' ';
-            y+=lineHeight;
-        } else line=test;
-    }
-    ctx.fillText(line,x,y);
+/* SNAPSHOT */
+function snapshot(){
+  pctx.drawImage(video,0,0);
+  pctx.drawImage(draw,0,0);
+
+  const h=photo.height*0.15;
+  pctx.fillStyle='rgba(0,0,0,.7)';
+  pctx.fillRect(0,photo.height-h,photo.width,h);
+
+  const txt=pin?pinnedText:document.getElementById('text').value;
+  if(txt){
+    pctx.fillStyle='yellow';
+    pctx.font='20px Arial';
+    pctx.fillText(txt,20,photo.height-h+30);
+  }
+
+  pctx.fillStyle=acc>15?'red':'#0f0';
+  pctx.font='18px monospace';
+  pctx.fillText(`📍 ${coords} (±${acc}м)`,20,photo.height-h+60);
+  pctx.fillStyle='#fff';
+  pctx.font='14px Arial';
+  pctx.fillText(addr,20,photo.height-h+85);
 }
 
-/* ================== SEND ================== */
-function sendToBot(){
-    if(!lastImage) return alert("Сначала сделайте фото");
-
-    tg.sendData(JSON.stringify({
-        image:lastImage,
-        coords,
-        acc,
-        addr,
-        ts:Date.now()
-    }));
-    tg.close();
+/* PIN */
+function togglePin(){
+  pin=!pin;
+  if(pin) pinnedText=document.getElementById('text').value;
 }
 
-/* ================== CLEAR ================== */
-function clearCanvas(){
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    lastImage=null;
+/* SAVE */
+function saveMenu(){
+  snapshot();
+  const img=photo.toDataURL('image/jpeg',0.95);
+  tg.sendData(JSON.stringify({img,coords,addr,type,iso}));
 }
 </script>
-
 </body>
 </html>
