@@ -3,32 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ВЕЗДЕХОД V41</title>
+    <title>ВЕЗДЕХОД V43 PRO</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-        #header { padding: 10px; display: flex; justify-content: space-between; align-items: center; background: #1a1a1a; border-bottom: 1px solid #333; }
-        #view { flex-grow: 1; display: flex; align-items: center; justify-content: center; background: #000; position: relative; overflow: hidden; }
-        canvas { max-width: 100%; max-height: 100%; object-fit: contain; }
+        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; touch-action: none; }
+        #header { padding: 10px; display: flex; justify-content: space-between; align-items: center; background: #1a1a1a; z-index: 10; }
+        #view { flex-grow: 1; position: relative; background: #000; display: flex; align-items: center; justify-content: center; }
+        video { width: 100%; height: 100%; object-fit: cover; position: absolute; }
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; touch-action: none; }
         
-        .panel { background: #111; padding: 12px; border-top: 1px solid #333; }
-        .marker-bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px; }
-        .m-btn { background: #222; border: 1px solid #444; color: #fff; padding: 12px 5px; border-radius: 10px; font-size: 10px; text-align: center; font-weight: bold; }
-        .m-btn.active { border-color: #0f0; background: #1a331a; }
-
-        .sub-menu { display: none; justify-content: space-around; padding: 10px; background: #222; border-radius: 10px; margin-bottom: 10px; border: 1px solid #2481cc; }
-        .sub-btn { background: #333; border: 1px solid #555; color: #fff; padding: 8px 15px; border-radius: 5px; font-size: 12px; }
-
-        .input-bar { display: flex; align-items: center; gap: 8px; margin-top: 5px; }
-        #customText { flex-grow: 1; background: #1a1a1a; border: 1px solid #444; color: #fff; padding: 12px; border-radius: 8px; font-size: 16px; }
-        .pin-btn { background: #222; border: 2px solid #444; padding: 10px; border-radius: 8px; font-size: 20px; transition: 0.3s; }
-        .pin-btn.active { border-color: #0f0; color: #0f0; box-shadow: 0 0 10px rgba(0,255,0,0.3); }
-
-        .toolbar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 15px 15px 30px; background: #1a1a1a; }
-        .action { background: #333; border: none; color: white; padding: 18px; border-radius: 15px; font-size: 24px; }
+        .panel { background: #111; padding: 10px; border-top: 1px solid #333; z-index: 10; }
+        .marker-bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px; }
+        .m-btn { background: #222; border: 1px solid #444; color: #fff; padding: 10px 0; border-radius: 8px; font-size: 10px; font-weight: bold; }
         
-        #settingsModal { display: none; position: fixed; top: 20%; left: 5%; width: 90%; background: #222; padding: 20px; border-radius: 20px; border: 2px solid #2481cc; z-index: 1000; box-sizing: border-box; }
-        .save-opt { display: none; position: fixed; bottom: 100px; left: 5%; width: 90%; background: rgba(0,0,0,0.9); padding: 15px; border-radius: 15px; grid-template-columns: 1fr 1fr 1fr; gap: 10px; border: 1px solid #fff; }
+        .sub-menu { display: none; position: absolute; bottom: 180px; left: 5%; width: 90%; background: rgba(0,0,0,0.9); padding: 15px; border-radius: 15px; grid-template-columns: 1fr 1fr 1fr; gap: 10px; border: 1px solid #2481cc; z-index: 20; }
+        .sub-btn { padding: 10px; border-radius: 5px; border: none; font-weight: bold; color: #000; }
+
+        .input-bar { display: flex; align-items: center; gap: 8px; }
+        #customText { flex-grow: 1; background: #1a1a1a; border: 1px solid #444; color: #fff; padding: 10px; border-radius: 8px; }
+        .pin-btn { background: #222; border: 2px solid #444; padding: 8px; border-radius: 8px; font-size: 18px; }
+        .pin-btn.active { border-color: #0f0; color: #0f0; }
+
+        .toolbar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 10px 10px 25px; background: #1a1a1a; }
+        .action { background: #333; border: none; color: white; padding: 15px; border-radius: 12px; font-size: 20px; }
+        
+        #settingsModal { display: none; position: fixed; top: 20%; left: 5%; width: 90%; background: #222; padding: 20px; border-radius: 20px; border: 2px solid #2481cc; z-index: 1000; }
+        #saveModal { display: none; position: fixed; bottom: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 2000; flex-direction: column; justify-content: center; align-items: center; gap: 20px; }
     </style>
 </head>
 <body>
@@ -36,171 +36,216 @@
 <div id="header">
     <div style="position:relative">
         <button onclick="toggleSettings()" style="background:none; border:none; font-size: 24px;">⚙️</button>
-        <span id="bot-check" style="display:none; position:absolute; top:-5px; right:-5px; color:#0f0; font-size:14px;">✅</span>
+        <span id="bot-check" style="display:none; position:absolute; top:-5px; right:-5px; color:#0f0;">✅</span>
     </div>
-    <div id="gps-status" style="font-size:11px; color:#ff4444; font-weight:bold;">🛰️ GPS: ВЫКЛ</div>
-    <button onclick="updateGeo()" style="background:none; border:none; font-size: 24px;">📍</button>
+    <div id="gps-info" style="text-align: center; line-height: 1.2;">
+        <div id="live-coords" style="font-family:monospace; font-size:12px; color:red;">0.000000, 0.000000 (±0м)</div>
+        <div id="live-addr" style="font-size:9px; color:#aaa;">Определение адреса...</div>
+    </div>
+    <button onclick="stampGeo()" style="background:none; border:none; font-size: 24px;">📍</button>
 </div>
 
 <div id="view">
-    <canvas id="canvas"></canvas>
-    <div id="saveOptions" class="save-opt">
-        <button class="sub-btn" onclick="saveFile()" style="background:#444">💾 ГАЛЕРЕЯ</button>
-        <button class="sub-btn" onclick="sendToBot()" style="background:#2481cc">✅ В БОТ</button>
-        <button class="sub-btn" onclick="closeSave()" style="background:#600">🔙 НАЗАД</button>
-    </div>
+    <video id="video" autoplay playsinline></video>
+    <canvas id="mainCanvas"></canvas>
+    <canvas id="drawCanvas"></canvas>
+</div>
+
+<div id="saveModal">
+    <button class="action" style="width:80%; background:#444;" onclick="doSave()">💾 ГАЛЕРЕЯ</button>
+    <button class="action" style="width:80%; background:#2481cc;" onclick="doSend()">✅ ОТПРАВИТЬ В БОТ</button>
+    <button class="action" style="width:80%; background:#600;" onclick="closeSave()">🔙 ВЕРНУТЬСЯ</button>
 </div>
 
 <div class="panel">
     <div class="marker-bar">
-        <button class="m-btn" onclick="setMode('МАГНИТ')">🧲<br>МАГНИТ</button>
-        <button class="m-btn" onclick="showSubMenu('ТАЙНИК')">📦<br>ТАЙНИК</button>
-        <button class="m-btn" onclick="setMode('ПОДЪЕЗД')">🏢<br>ПОДЪЕЗД</button>
+        <button class="m-btn" onclick="openMenu('МАГНИТ')">🧲<br>МАГНИТ</button>
+        <button class="m-btn" onclick="openMenu('ТАЙНИК')">📦<br>ТАЙНИК</button>
+        <button class="m-btn" onclick="openMenu('ПОДЪЕЗД')">🏢<br>ПОДЪЕЗД</button>
     </div>
 
     <div id="subMenu" class="sub-menu">
-        <button class="sub-btn" onclick="applyType('ЖЁЛТАЯ', '#ffff00')">ЖЁЛТАЯ</button>
-        <button class="sub-btn" onclick="applyType('КРАСНАЯ', '#ff0000')">КРАСНАЯ</button>
-        <button class="sub-btn" onclick="applyType('КАМЕНЬ', '#cccccc')">КАМЕНЬ</button>
+        <button class="sub-btn" style="background:#ff0" onclick="applyMетка('Жёлтая ИЗО', '#ff0')">ЖЁЛТАЯ</button>
+        <button class="sub-btn" style="background:#f00" onclick="applyMетка('Красная ИЗО', '#f00')">КРАСНАЯ</button>
+        <button class="sub-btn" style="background:#ccc" onclick="applyMетка('Камень', '#fff')">КАМЕНЬ</button>
     </div>
 
     <div class="input-bar">
-        <button class="pin-btn" onclick="drawText()">📝</button>
-        <input type="text" id="customText" placeholder="Введите надпись...">
+        <button class="pin-btn">📝</button>
+        <input type="text" id="customText" placeholder="Описание работы...">
         <button id="pinBtn" class="pin-btn" onclick="togglePin()">📌</button>
     </div>
 </div>
 
 <div id="settingsModal">
-    <h3 style="margin-top:0">Настройки бота</h3>
-    <input type="text" id="targetBot" placeholder="@username_bot" style="width:100%; padding:12px; background:#111; color:#fff; border:1px solid #444; border-radius:8px;">
-    <button onclick="saveSettings()" style="width:100%; background:#2481cc; border:none; color:#fff; padding:15px; border-radius:10px; margin-top:15px; font-weight:bold;">СОХРАНИТЬ</button>
+    <h3 style="margin:0">Настройка бота</h3>
+    <input type="text" id="botInput" placeholder="@username_bot" style="width:100%; padding:12px; margin:15px 0; background:#111; color:#fff; border:1px solid #444; border-radius:8px;">
+    <button onclick="saveBot()" style="width:100%; background:#2481cc; border:none; color:#fff; padding:15px; border-radius:10px; font-weight:bold;">СОХРАНИТЬ</button>
 </div>
 
 <div class="toolbar">
-    <button class="action" onclick="document.getElementById('cam').click()">📷</button>
-    <button class="action" onclick="location.reload()">🔄</button>
-    <button class="action" onclick="showSave()">💾</button>
-    <button class="action" style="background:#2481cc" onclick="sendToBot()">✅</button>
+    <button class="action" onclick="takeSnapshot()">📷</button>
+    <button class="action" onclick="clearDraw()">🔄</button>
+    <button class="action" onclick="openSave()">💾</button>
+    <button class="action" style="background:#2481cc" onclick="doSend()">✅</button>
 </div>
-
-<input type="file" id="cam" accept="image/*" capture="environment" style="display:none">
 
 <script>
     const tg = window.Telegram.WebApp;
     tg.expand();
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    let coords = "0.000000, 0.000000", acc = "0.0", addr = "Адрес не определен", 
-        imgObj = null, isPinned = false, activeText = "", activeColor = "#ffff00";
 
-    // Настройки
-    function toggleSettings() { const m = document.getElementById('settingsModal'); m.style.display = m.style.display === 'block' ? 'none' : 'block'; }
-    function saveSettings() {
-        const val = document.getElementById('targetBot').value;
-        localStorage.setItem('targetBot', val);
-        document.getElementById('bot-check').style.display = val ? 'block' : 'none';
-        toggleSettings();
+    const video = document.getElementById('video');
+    const mainCanvas = document.getElementById('mainCanvas');
+    const drawCanvas = document.getElementById('drawCanvas');
+    const mCtx = mainCanvas.getContext('2d');
+    const dCtx = drawCanvas.getContext('2d');
+
+    let curCoords = "0,0", curAcc = 0, curAddr = "...", baseType = "", labelText = "", labelColor = "#fff", isPinned = false;
+    let drawing = false, startX, startY;
+
+    // 1. Инициализация камеры
+    async function initCam() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+            video.srcObject = stream;
+            video.onloadedmetadata = () => {
+                mainCanvas.width = drawCanvas.width = video.videoWidth;
+                mainCanvas.height = drawCanvas.height = video.videoHeight;
+            };
+        } catch (e) { alert("Нет доступа к камере! Проверьте разрешения."); }
     }
-    if(localStorage.getItem('targetBot')) {
-        document.getElementById('targetBot').value = localStorage.getItem('targetBot');
-        document.getElementById('bot-check').style.display = 'block';
-    }
+    initCam();
 
-    // Гео
-    function updateGeo() {
-        navigator.geolocation.getCurrentPosition(p => {
-            coords = `${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}`;
-            acc = p.coords.accuracy.toFixed(1);
-            document.getElementById('gps-status').innerText = "🛰️ OK";
-            document.getElementById('gps-status').style.color = "#0f0";
-            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${p.coords.latitude}&lon=${p.coords.longitude}`)
-                .then(r => r.json()).then(d => {
-                    addr = (d.address.road || "") + (d.address.house_number ? ", " + d.address.house_number : "");
-                    if(imgObj) render();
-                });
-        }, err => { tg.showAlert("Включите GPS!"); }, {enableHighAccuracy: true});
-    }
-    updateGeo();
-
-    // Камера и рендер
-    document.getElementById('cam').onchange = (e) => {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-            imgObj = new Image();
-            imgObj.onload = render;
-            imgObj.src = ev.target.result;
-        };
-        reader.readAsDataURL(e.target.files[0]);
-    };
-
-    function render() {
-        if(!imgObj) return;
-        canvas.width = imgObj.width;
-        canvas.height = imgObj.height;
-        ctx.drawImage(imgObj, 0, 0);
-
-        const h = canvas.height * 0.12;
-        const fs = h * 0.3;
-
-        // Фон координат
-        ctx.fillStyle = "rgba(0,0,0,0.85)";
-        ctx.fillRect(0, canvas.height - h, canvas.width, h);
+    // 2. Умный GPS
+    navigator.geolocation.watchPosition(p => {
+        curCoords = `${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}`;
+        curAcc = p.coords.accuracy.toFixed(0);
+        const el = document.getElementById('live-coords');
+        el.innerText = `${curCoords} (±${curAcc}м)`;
+        el.style.color = curAcc > 15 ? 'red' : '#0f0';
         
-        // Координаты
-        ctx.fillStyle = "#0f0";
-        ctx.font = `bold ${fs}px monospace`;
-        ctx.fillText(`📍 ${coords} (±${acc}м)`, 40, canvas.height - h * 0.55);
-        
-        // Адрес
-        ctx.fillStyle = "#0cf";
-        ctx.font = `${fs * 0.7}px sans-serif`;
-        ctx.fillText(addr, 40, canvas.height - h * 0.25);
+        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${p.coords.latitude}&lon=${p.coords.longitude}`)
+            .then(r => r.json()).then(d => {
+                curAddr = d.address.road + (d.address.house_number ? ", " + d.address.house_number : "");
+                document.getElementById('live-addr').innerText = curAddr;
+            });
+    }, null, { enableHighAccuracy: true });
 
-        // Верхняя надпись
-        const finalTxt = document.getElementById('customText').value || activeText;
-        if(finalTxt) {
-            ctx.fillStyle = "rgba(0,0,0,0.5)";
-            ctx.fillRect(0, 0, canvas.width, h * 0.7);
-            ctx.fillStyle = activeColor;
-            ctx.font = `bold ${fs * 1.2}px sans-serif`;
-            ctx.textAlign = "center";
-            ctx.fillText(finalTxt, canvas.width/2, h * 0.45);
-            ctx.textAlign = "left";
-        }
+    // 3. Рисование стрелок
+    drawCanvas.addEventListener('touchstart', e => {
+        drawing = true;
+        const rect = drawCanvas.getBoundingClientRect();
+        startX = (e.touches[0].clientX - rect.left) * (drawCanvas.width / rect.width);
+        startY = (e.touches[0].clientY - rect.top) * (drawCanvas.height / rect.height);
+    });
+
+    drawCanvas.addEventListener('touchend', e => {
+        if (!drawing) return;
+        const rect = drawCanvas.getBoundingClientRect();
+        const endX = (e.changedTouches[0].clientX - rect.left) * (drawCanvas.width / rect.width);
+        const endY = (e.changedTouches[0].clientY - rect.top) * (drawCanvas.height / rect.height);
+        drawArrow(startX, startY, endX, endY);
+        drawing = false;
+    });
+
+    function drawArrow(x1, y1, x2, y2) {
+        dCtx.strokeStyle = 'red';
+        dCtx.lineWidth = 8;
+        dCtx.beginPath();
+        dCtx.moveTo(x1, y1);
+        dCtx.lineTo(x2, y2);
+        dCtx.stroke();
+        const angle = Math.atan2(y2 - y1, x2 - x1);
+        dCtx.beginPath();
+        dCtx.moveTo(x2, y2);
+        dCtx.lineTo(x2 - 30 * Math.cos(angle - Math.PI / 6), y2 - 30 * Math.sin(angle - Math.PI / 6));
+        dCtx.moveTo(x2, y2);
+        dCtx.lineTo(x2 - 30 * Math.cos(angle + Math.PI / 6), y2 - 30 * Math.sin(angle + Math.PI / 6));
+        dCtx.stroke();
     }
 
-    // Функции кнопок
-    function setMode(type) { activeText = type; activeColor = "#ffff00"; render(); tg.HapticFeedback.impactOccurred('medium'); }
-    function showSubMenu() { document.getElementById('subMenu').style.display = 'flex'; }
-    function applyType(type, col) { 
-        activeText = type; activeColor = col; 
-        document.getElementById('subMenu').style.display = 'none'; 
-        render(); 
+    // 4. Логика кнопок
+    function openMenu(type) { baseType = type; document.getElementById('subMenu').style.display = 'grid'; }
+    function applyMетка(text, color) {
+        labelText = `${baseType} / ${text}`;
+        labelColor = color;
+        document.getElementById('subMenu').style.display = 'none';
+        takeSnapshot();
     }
+
     function togglePin() { 
         isPinned = !isPinned; 
         document.getElementById('pinBtn').classList.toggle('active'); 
     }
-    function drawText() { render(); }
 
-    function showSave() { if(imgObj) document.getElementById('saveOptions').style.display = 'grid'; }
-    function closeSave() { document.getElementById('saveOptions').style.display = 'none'; }
+    function takeSnapshot() {
+        mCtx.drawImage(video, 0, 0);
+        mCtx.drawImage(drawCanvas, 0, 0);
+        
+        const h = mainCanvas.height * 0.15;
+        const fs = h * 0.25;
 
-    function saveFile() {
+        // Наложение текста в левом верхнем углу
+        if(labelText) {
+            mCtx.fillStyle = "rgba(0,0,0,0.7)";
+            mCtx.fillRect(20, 20, mainCanvas.width * 0.6, h * 0.5);
+            mCtx.font = `bold ${fs}px sans-serif`;
+            const parts = labelText.split(' / ');
+            mCtx.fillStyle = "#fff";
+            mCtx.fillText(parts[0] + " / ", 40, 20 + fs * 1.2);
+            mCtx.fillStyle = labelColor;
+            mCtx.fillText(parts[1], 40 + mCtx.measureText(parts[0] + " / ").width, 20 + fs * 1.2);
+        }
+
+        // Описание внизу (над координатами)
+        const desc = document.getElementById('customText').value;
+        if(desc) {
+            mCtx.fillStyle = "yellow";
+            mCtx.font = `bold ${fs * 0.8}px sans-serif`;
+            mCtx.textAlign = "center";
+            mCtx.fillText(desc, mainCanvas.width / 2, mainCanvas.height - h - 20);
+            mCtx.textAlign = "left";
+        }
+
+        // Штамп координат (📍)
+        mCtx.fillStyle = "rgba(0,0,0,0.8)";
+        mCtx.fillRect(0, mainCanvas.height - h, mainCanvas.width, h);
+        mCtx.fillStyle = curAcc > 15 ? 'red' : '#0f0';
+        mCtx.font = `bold ${fs}px monospace`;
+        mCtx.fillText(`📍 ${curCoords} (±${curAcc}м)`, 40, mainCanvas.height - h * 0.6);
+        mCtx.fillStyle = "#fff";
+        mCtx.font = `${fs * 0.7}px sans-serif`;
+        mCtx.fillText(curAddr, 40, mainCanvas.height - h * 0.25);
+    }
+
+    // 5. Сохранение и отправка
+    function openSave() { takeSnapshot(); document.getElementById('saveModal').style.display = 'flex'; }
+    function closeSave() { document.getElementById('saveModal').style.display = 'none'; }
+    
+    function doSave() {
+        const data = mainCanvas.toDataURL("image/jpeg", 0.9);
         const link = document.createElement('a');
-        link.download = `VZ_${Date.now()}.jpg`;
-        link.href = canvas.toDataURL('image/jpeg', 0.95);
+        link.href = data; link.download = `IMG_${Date.now()}.jpg`;
         link.click();
         closeSave();
     }
 
-    function sendToBot() {
-        const bot = localStorage.getItem('targetBot');
-        if(!bot) return tg.showAlert("Сначала укажите бота в ⚙️");
-        tg.sendData(`SEND|${bot}|${coords}`);
+    function doSend() {
+        const bot = localStorage.getItem('bot');
+        if(!bot) return alert("Укажите адрес бота в ⚙️");
+        tg.sendData(JSON.stringify({ bot, coords: curCoords }));
         tg.close();
     }
+
+    function toggleSettings() { document.getElementById('settingsModal').style.display = 'block'; }
+    function saveBot() {
+        const val = document.getElementById('botInput').value;
+        localStorage.setItem('bot', val);
+        document.getElementById('bot-check').style.display = val ? 'block' : 'none';
+        document.getElementById('settingsModal').style.display = 'none';
+    }
+    function clearDraw() { dCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height); takeSnapshot(); }
+    function stampGeo() { takeSnapshot(); }
 </script>
 </body>
 </html>
