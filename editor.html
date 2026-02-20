@@ -69,25 +69,32 @@
     let lastGPS = { lat: 0, lon: 0, acc: 0 }, drawing = false;
 
     window.onload = () => {
-        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
-        inkCanvas.width = canvas.width; inkCanvas.height = canvas.height;
+    canvas.width = window.innerWidth; 
+    canvas.height = window.innerHeight;
+    inkCanvas.width = canvas.width; 
+    inkCanvas.height = canvas.height;
 
-        // ВОССТАНОВЛЕНИЕ ДАННЫХ ПРИ ПЕРЕЗАГРУЗКЕ
-        const savedSticky = localStorage.getItem('isSticky');
-        const savedNote = localStorage.getItem('savedNote');
-        if (savedSticky === 'true') {
-            isStickyNote = true;
-            currentNote = savedNote || "";
-            document.getElementById('sticky-indicator').style.display = 'block';
-        }
+    // Читаем напрямую из памяти
+    const savedNote = localStorage.getItem('savedNote');
+    const savedSticky = localStorage.getItem('isSticky');
 
-        navigator.geolocation.watchPosition(p => {
-            lastGPS = { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy };
-            const gDiv = document.getElementById('gps-live');
-            gDiv.style.color = lastGPS.acc > 15 ? '#ff4444' : '#00ff00';
-            gDiv.innerText = `GPS: ${lastGPS.lat.toFixed(6)}, ${lastGPS.lon.toFixed(6)} (±${lastGPS.acc.toFixed(1)}м)`;
-        }, null, { enableHighAccuracy: true });
-    };
+    console.log("Пытаюсь восстановить:", savedNote, savedSticky); // Отладка
+
+    if (savedSticky === 'true' && savedNote) {
+        isStickyNote = true;
+        currentNote = savedNote;
+        document.getElementById('sticky-indicator').style.display = 'block';
+        // Если фото уже загружено к этому моменту, перерисовываем
+        render(); 
+    }
+
+    navigator.geolocation.watchPosition(p => {
+        lastGPS = { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy };
+        const gDiv = document.getElementById('gps-live');
+        gDiv.style.color = lastGPS.acc > 15 ? '#ff4444' : '#00ff00';
+        gDiv.innerText = `GPS: ${lastGPS.lat.toFixed(6)}, ${lastGPS.lon.toFixed(6)} (±${lastGPS.acc.toFixed(1)}м)`;
+    }, null, { enableHighAccuracy: true });
+};
 
     function loadPhoto(input) {
         if (!input.files[0]) return;
