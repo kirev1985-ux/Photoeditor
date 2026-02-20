@@ -34,6 +34,7 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
+            background: #000;
         }
         #overlay {
             position: absolute;
@@ -136,12 +137,26 @@
             background: #ffcc00;
             color: #000;
         }
+        #errorBanner {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            right: 8px;
+            padding: 6px 8px;
+            background: rgba(255, 59, 48, 0.9);
+            color: #fff;
+            font-size: 12px;
+            border-radius: 6px;
+            z-index: 10;
+            display: none;
+        }
     </style>
 </head>
 <body>
 <div id="app">
     <div id="videoWrapper">
-        <video id="video" autoplay playsinline></video>
+        <div id="errorBanner"></div>
+        <video id="video" autoplay playsinline muted></video>
         <canvas id="overlay"></canvas>
     </div>
 
@@ -182,6 +197,7 @@ const overlay = document.getElementById('overlay');
 const octx = overlay.getContext('2d');
 const preview = document.getElementById('preview');
 const previewImg = document.getElementById('previewImg');
+const errorBanner = document.getElementById('errorBanner');
 
 let stream = null;
 let facingMode = 'environment';
@@ -195,31 +211,61 @@ let coords = '0.000000, 0.000000';
 let acc = 0;
 let addr = 'Определение адреса…';
 
+function showError(msg) {
+    errorBanner.textContent = msg;
+    errorBanner.style.display = 'block';
+}
+
 // CAMERA
 async function initCam() {
     try {
-        if (stream) stream.getTracks().forEach(t => t.stop());
-
-        try {
-            stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: { exact: facingMode } }
-            });
-        } catch {
-            stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode }
-            });
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            showError('Камера недоступна в этом окружении');
+            return;
         }
 
+        if (stream) {
+            stream.getTracks().forEach(t => t.stop());
+            stream = null;
+        }
+
+        const constraints = {
+            audio: false,
+            video: {
+                facingMode: facingMode,
+                width: { ideal: 720 },
+                height: { ideal: 1280 }
+            }
+        };
+
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+
         video.srcObject = stream;
-        video.onloadedmetadata = resize;
+        video.muted = true;
+        video.playsInline = true;
+        video.autoplay = true;
+
+        video.onloadedmetadata = () => {
+            video.play().catch(() => {});
+            resize();
+        };
     } catch (e) {
-        alert('Ошибка камеры: ' + e.message);
+        showError('Ошибка камеры: ' + e.message);
     }
 }
 
 function resize() {
-    overlay.width = video.videoWidth;
-    overlay.height = video.videoHeight;
+    let vw = video.videoWidth;
+    let vh = video.videoHeight;
+
+    if (!vw || !vh) {
+        // fallback, если WebView не отдаёт размеры
+        vw = 720;
+        vh = 1280;
+    }
+
+    overlay.width = vw;
+    overlay.height = vh;
     history = [];
     saveState();
 }
@@ -232,22 +278,34 @@ function toggleCam() {
 initCam();
 
 // GEO
-navigator.geolocation.watchPosition(p => {
-    coords = `${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}`;
-    acc = Math.round(p.coords.accuracy);
+if (navigator.geolocation) {
+    navigator.geolocation.watchPosition(p => {
+        coords = `${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}`;
+        acc = Math.round(p.coords.accuracy);
 
-    const coordsEl = document.getElementById('coords');
-    coordsEl.textContent = `${coords} (±${acc}м)`;
-    coordsEl.className = acc > 20 ? 'bad' : 'good';
+        const coordsEl = document.getElementById('coords');
+        coordsEl.textContent = `${coords} (±${acc}м)`;
+        coordsEl.className = acc > 20 ? 'bad' : 'good';
 
-    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${p.coords.latitude}&lon=${p.coords.longitude}&zoom=18&addressdetails=1`)
-        .then(r => r.json())
-        .then(d => {
-            addr = d.display_name || 'Адрес не найден';
-            document.getElementById('addr').textContent = addr;
-        })
-        .catch(() => addr = 'Ошибка геокодирования');
-});
+        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${p.coords.latitude}&lon=${p.coords.longitude}&zoom=18&addressdetails=1`)
+            .then(r => r.json())
+            .then(d => {
+                addr = d.display_name || 'Адрес не найден';
+                document.getElementById('addr').textContent = addr;
+            })
+            .catch(() => {
+                addr = 'Ошибка геокодирования';
+            });
+    }, err => {
+        showError('Геолокация недоступна: ' + err.message);
+    }, {
+        enableHighAccuracy: true,
+        timeout: 5000,
+        maximumAge: 0
+    });
+} else {
+    showError('Геолокация не поддерживается');
+}
 
 // TOUCH START
 overlay.addEventListener('touchstart', e => {
@@ -279,7 +337,7 @@ overlay.addEventListener('touchmove', e => {
     octx.stroke();
 });
 
-// SINGLE TOUCHEND HANDLER (FIX)
+// TOUCH END (единый обработчик)
 overlay.addEventListener('touchend', e => {
     e.preventDefault();
     drawing = false;
@@ -307,7 +365,9 @@ overlay.addEventListener('touchend', e => {
         return;
     }
 
-    if (mode !== 'none') saveState();
+    if (mode !== 'none') {
+        saveState();
+    }
 });
 
 // MODES
@@ -324,8 +384,12 @@ function addGPSMode() {
 // HISTORY
 function saveState() {
     if (!overlay.width || !overlay.height) return;
-    history.push(octx.getImageData(0, 0, overlay.width, overlay.height));
-    if (history.length > 20) history.shift();
+    try {
+        history.push(octx.getImageData(0, 0, overlay.width, overlay.height));
+        if (history.length > 20) history.shift();
+    } catch (e) {
+        // на всякий случай, если canvas ещё не готов
+    }
 }
 
 function undo() {
@@ -336,12 +400,17 @@ function undo() {
 
 // PHOTO
 function takePhoto() {
+    if (!overlay.width || !overlay.height) {
+        showError('Камера ещё не готова');
+        return;
+    }
+
     const temp = document.createElement('canvas');
     temp.width = overlay.width;
     temp.height = overlay.height;
     const tctx = temp.getContext('2d');
 
-    tctx.drawImage(video, 0, 0);
+    tctx.drawImage(video, 0, 0, overlay.width, overlay.height);
     tctx.drawImage(overlay, 0, 0);
 
     previewImg.src = temp.toDataURL('image/jpeg', 0.92);
@@ -356,7 +425,10 @@ function keepPhoto() {
         pinned: pin ? pinnedText : ''
     };
 
-    if (tg) tg.sendData(JSON.stringify(data));
+    if (tg) {
+        tg.sendData(JSON.stringify(data));
+    }
+
     preview.style.display = 'none';
     clearOverlay();
 }
@@ -374,7 +446,9 @@ function clearOverlay() {
 // PIN
 function togglePin() {
     pin = !pin;
-    if (pin) pinnedText = document.getElementById('text').value;
+    if (pin) {
+        pinnedText = document.getElementById('text').value;
+    }
     document.getElementById('pinBtn').classList.toggle('active', pin);
 }
 
