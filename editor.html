@@ -43,11 +43,12 @@
 
 <div id="modal-iso">
     <h3>ВЫБЕРИТЕ ТИП:</h3>
-    <div class="iso-choice" style="background:#b00; border: 2px solid white;" onclick="setIso('КРАСНАЯ ИЗО', 'red')">КРАСНАЯ ИЗО</div>
-    <div class="iso-choice" style="background:#b80; border: 2px solid white;" onclick="setIso('ЖЕЛТАЯ ИЗО', 'yellow')">ЖЕЛТАЯ ИЗО</div>
-    <div class="iso-choice" style="background:#0056b3; border: 2px solid white;" onclick="setIso('ЧЕРНАЯ ИЗО', '#007bff')">ЧЕРНАЯ ИЗО</div>
-    <div class="iso-choice" style="background:#555; border: 2px solid white;" onclick="setIso('БЕЛАЯ ИЗО', '#ccc')">БЕЛАЯ ИЗО</div>
-    <div style="margin-top:20px; color:#aaa" onclick="document.getElementById('modal-iso').style.display='none'">ОТМЕНА</div>
+    <div class="iso-choice" style="background:#b00; border: 2px solid white;" onclick="setIso('КРАСНАЯ ИЗО', '#bb0000')">КРАСНАЯ ИЗО</div>
+    <div class="iso-choice" style="background:#b80; border: 2px solid white;" onclick="setIso('ЖЕЛТАЯ ИЗО', '#bb8800')">ЖЕЛТАЯ ИЗО</div>
+    <div class="iso-choice" style="background:#000; border: 2px solid white;" onclick="setIso('ЧЕРНАЯ ИЗО', '#000000')">ЧЕРНАЯ ИЗО</div>
+    <div class="iso-choice" style="background:#fff; color:#000; border: 2px solid #ccc;" onclick="setIso('БЕЛАЯ ИЗО', '#ffffff')">БЕЛАЯ ИЗО</div>
+    
+    <div style="margin-top:20px; color:#aaa; cursor:pointer" onclick="document.getElementById('modal-iso').style.display='none'">ОТМЕНА</div>
 </div>
 
 <input type="file" id="hiddenInput" accept="image/*" capture="environment" style="display:none" onchange="loadPhoto(this)">
