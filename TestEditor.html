@@ -94,4 +94,291 @@
             gap: 8px;
             width: 100%;
         }
-        #preview
+        #previewButtons button {
+            flex: 1;
+            padding: 10px;
+            border-radius: 6px;
+            border: none;
+            font-size: 15px;
+        }
+        #previewButtons .ok {
+            background: #34c759;
+            color: #000;
+        }
+        #previewButtons .cancel {
+            background: #ff3b30;
+            color: #fff;
+        }
+        #textInputWrapper {
+            display: flex;
+            gap: 6px;
+            padding: 4px 8px 8px;
+            background: rgba(0, 0, 0, 0.8);
+        }
+        #text {
+            flex: 1;
+            padding: 6px 8px;
+            border-radius: 6px;
+            border: 1px solid #333;
+            background: #111;
+            color: #fff;
+            font-size: 14px;
+        }
+        #pinBtn {
+            padding: 6px 8px;
+            border-radius: 6px;
+            border: none;
+            background: #1c1c1e;
+            color: #fff;
+            font-size: 14px;
+        }
+        #pinBtn.active {
+            background: #ffcc00;
+            color: #000;
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    <div id="videoWrapper">
+        <video id="video" autoplay playsinline></video>
+        <canvas id="overlay"></canvas>
+    </div>
+
+    <div id="info">
+        <div id="coords">Координаты: —</div>
+        <div id="addr">Адрес: определение…</div>
+    </div>
+
+    <div id="textInputWrapper">
+        <input id="text" type="text" placeholder="Текст для плашки">
+        <button id="pinBtn" onclick="togglePin()">📌</button>
+    </div>
+
+    <div id="toolbar">
+        <button onclick="toggleCam()">🔁 Камера</button>
+        <button onclick="toggleDraw()">✏️ Рисовать</button>
+        <button onclick="addTextMode()">🔤 Текст</button>
+        <button onclick="addGPSMode()">📍 GPS</button>
+        <button onclick="undo()">↩️ Отмена</button>
+        <button onclick="takePhoto()">📸 Снять</button>
+    </div>
+</div>
+
+<div id="preview">
+    <img id="previewImg" src="">
+    <div id="previewButtons">
+        <button class="cancel" onclick="discardPhoto()">Отмена</button>
+        <button class="ok" onclick="keepPhoto()">Отправить</button>
+    </div>
+</div>
+
+<script>
+const tg = window.Telegram && Telegram.WebApp ? Telegram.WebApp : null;
+if (tg) tg.expand();
+
+const video = document.getElementById('video');
+const overlay = document.getElementById('overlay');
+const octx = overlay.getContext('2d');
+const preview = document.getElementById('preview');
+const previewImg = document.getElementById('previewImg');
+
+let stream = null;
+let facingMode = 'environment';
+let drawing = false;
+let mode = 'none';
+let startX, startY;
+let history = [];
+let pinnedText = '';
+let pin = false;
+let coords = '0.000000, 0.000000';
+let acc = 0;
+let addr = 'Определение адреса…';
+
+// CAMERA
+async function initCam() {
+    try {
+        if (stream) stream.getTracks().forEach(t => t.stop());
+
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: { exact: facingMode } }
+            });
+        } catch {
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode }
+            });
+        }
+
+        video.srcObject = stream;
+        video.onloadedmetadata = resize;
+    } catch (e) {
+        alert('Ошибка камеры: ' + e.message);
+    }
+}
+
+function resize() {
+    overlay.width = video.videoWidth;
+    overlay.height = video.videoHeight;
+    history = [];
+    saveState();
+}
+
+function toggleCam() {
+    facingMode = facingMode === 'environment' ? 'user' : 'environment';
+    initCam();
+}
+
+initCam();
+
+// GEO
+navigator.geolocation.watchPosition(p => {
+    coords = `${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}`;
+    acc = Math.round(p.coords.accuracy);
+
+    const coordsEl = document.getElementById('coords');
+    coordsEl.textContent = `${coords} (±${acc}м)`;
+    coordsEl.className = acc > 20 ? 'bad' : 'good';
+
+    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${p.coords.latitude}&lon=${p.coords.longitude}&zoom=18&addressdetails=1`)
+        .then(r => r.json())
+        .then(d => {
+            addr = d.display_name || 'Адрес не найден';
+            document.getElementById('addr').textContent = addr;
+        })
+        .catch(() => addr = 'Ошибка геокодирования');
+});
+
+// TOUCH START
+overlay.addEventListener('touchstart', e => {
+    e.preventDefault();
+    const r = overlay.getBoundingClientRect();
+    startX = (e.touches[0].clientX - r.left) * (overlay.width / r.width);
+    startY = (e.touches[0].clientY - r.top) * (overlay.height / r.height);
+
+    if (mode === 'draw') {
+        drawing = true;
+        octx.beginPath();
+        octx.moveTo(startX, startY);
+        octx.strokeStyle = 'red';
+        octx.lineWidth = 6;
+        octx.lineCap = 'round';
+    }
+});
+
+// TOUCH MOVE
+overlay.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (!drawing) return;
+
+    const r = overlay.getBoundingClientRect();
+    const x = (e.touches[0].clientX - r.left) * (overlay.width / r.width);
+    const y = (e.touches[0].clientY - r.top) * (overlay.height / r.height);
+
+    octx.lineTo(x, y);
+    octx.stroke();
+});
+
+// SINGLE TOUCHEND HANDLER (FIX)
+overlay.addEventListener('touchend', e => {
+    e.preventDefault();
+    drawing = false;
+
+    const r = overlay.getBoundingClientRect();
+    const x = (e.changedTouches[0].clientX - r.left) * (overlay.width / r.width);
+    const y = (e.changedTouches[0].clientY - r.top) * (overlay.height / r.height);
+
+    if (mode === 'text') {
+        const txt = document.getElementById('text').value || 'текст';
+        octx.fillStyle = 'yellow';
+        octx.font = 'bold 28px Arial';
+        octx.fillText(txt, x, y);
+        saveState();
+        mode = 'none';
+        return;
+    }
+
+    if (mode === 'gps') {
+        octx.fillStyle = acc > 20 ? 'red' : '#0f0';
+        octx.font = 'bold 22px monospace';
+        octx.fillText(`📍 ${coords}`, x, y);
+        saveState();
+        mode = 'none';
+        return;
+    }
+
+    if (mode !== 'none') saveState();
+});
+
+// MODES
+function toggleDraw() {
+    mode = mode === 'draw' ? 'none' : 'draw';
+}
+function addTextMode() {
+    mode = mode === 'text' ? 'none' : 'text';
+}
+function addGPSMode() {
+    mode = mode === 'gps' ? 'none' : 'gps';
+}
+
+// HISTORY
+function saveState() {
+    if (!overlay.width || !overlay.height) return;
+    history.push(octx.getImageData(0, 0, overlay.width, overlay.height));
+    if (history.length > 20) history.shift();
+}
+
+function undo() {
+    if (history.length < 2) return;
+    history.pop();
+    octx.putImageData(history[history.length - 1], 0, 0);
+}
+
+// PHOTO
+function takePhoto() {
+    const temp = document.createElement('canvas');
+    temp.width = overlay.width;
+    temp.height = overlay.height;
+    const tctx = temp.getContext('2d');
+
+    tctx.drawImage(video, 0, 0);
+    tctx.drawImage(overlay, 0, 0);
+
+    previewImg.src = temp.toDataURL('image/jpeg', 0.92);
+    preview.style.display = 'flex';
+}
+
+function keepPhoto() {
+    const data = {
+        img: previewImg.src,
+        coords,
+        addr,
+        pinned: pin ? pinnedText : ''
+    };
+
+    if (tg) tg.sendData(JSON.stringify(data));
+    preview.style.display = 'none';
+    clearOverlay();
+}
+
+function discardPhoto() {
+    preview.style.display = 'none';
+}
+
+function clearOverlay() {
+    octx.clearRect(0, 0, overlay.width, overlay.height);
+    history = [];
+    saveState();
+}
+
+// PIN
+function togglePin() {
+    pin = !pin;
+    if (pin) pinnedText = document.getElementById('text').value;
+    document.getElementById('pinBtn').classList.toggle('active', pin);
+}
+
+saveState();
+</script>
+</body>
+</html>
