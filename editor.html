@@ -9,15 +9,15 @@
         canvas { display: block; background: #111; margin: 0 auto; touch-action: none; }
         #gps-live { position: fixed; top: 0; left: 0; width: 100%; background: rgba(0,0,0,0.8); font-size: 11px; padding: 5px; text-align: center; z-index: 20; }
         #side-menu { position: fixed; right: 10px; top: 50px; display: flex; flex-direction: column; gap: 12px; z-index: 10; }
-        .btn-side { width: 56px; height: 56px; background: #333; border: 1px solid #555; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 22px; }
+        .btn-side { width: 56px; height: 56px; background: #333; border: 1px solid #555; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 22px; cursor: pointer; }
         .btn-label { font-size: 10px; font-weight: bold; margin-top: -2px; }
-        #bottom-menu { position: fixed; bottom: 110px; width: 100%; display: center; justify-content: center; align-items: center; gap: 30px; z-index: 10; display: flex; }
-        .btn-cam { width: 80px; height: 80px; background: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40px; color: #000; border: 5px solid #444; }
+        #bottom-menu { position: fixed; bottom: 110px; width: 100%; display: flex; justify-content: center; align-items: center; gap: 30px; z-index: 10; }
+        .btn-cam { width: 80px; height: 80px; background: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40px; color: #000; border: 5px solid #444; cursor: pointer; }
         #save-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 3000; }
-        .save-ui-btn { width: 85%; padding: 20px; margin: 10px; border-radius: 15px; font-weight: bold; font-size: 18px; text-align: center; border: none; }
+        .save-ui-btn { width: 85%; padding: 20px; margin: 10px; border-radius: 15px; font-weight: bold; font-size: 18px; text-align: center; border: none; cursor: pointer; }
         #modal-iso { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 1001; }
-        .iso-choice { width: 240px; padding: 18px; margin: 8px; border-radius: 15px; text-align: center; font-weight: bold; font-size: 16px; }
-        #sticky-indicator { font-size: 12px; color: #0f0; display: none; position: absolute; top: -5px; right: -5px; background: #000; border-radius: 50%; width: 18px; height: 18px; text-align: center; border: 1px solid #0f0; }
+        .iso-choice { width: 240px; padding: 18px; margin: 8px; border-radius: 15px; text-align: center; font-weight: bold; font-size: 16px; cursor: pointer; }
+        #sticky-indicator { font-size: 12px; color: #0f0; display: none; position: absolute; top: -5px; right: -5px; background: #000; border-radius: 50%; width: 18px; height: 18px; text-align: center; border: 1px solid #0f0; line-height: 18px; }
     </style>
 </head>
 <body>
@@ -42,9 +42,9 @@
 </div>
 
 <div id="modal-iso">
-    <h3>ВЫБЕРИТЕ ТИП:</h3>
-    <div class="iso-choice" style="background:#b00; border: 2px solid white;" onclick="setIso('КРАСНАЯ ИЗО', '#bb0000')">КРАСНАЯ ИЗО</div>
-    <div class="iso-choice" style="background:#b80; border: 2px solid white;" onclick="setIso('ЖЕЛТАЯ ИЗО', '#bb8800')">ЖЕЛТАЯ ИЗО</div>
+    <h3>ВЫБЕРИТЕ ЦВЕТ ИЗО:</h3>
+    <div class="iso-choice" style="background:#b00; border: 2px solid white;" onclick="setIso('КРАСНАЯ ИЗО', '#ff0000')">КРАСНАЯ ИЗО</div>
+    <div class="iso-choice" style="background:#b80; border: 2px solid white;" onclick="setIso('ЖЕЛТАЯ ИЗО', '#ffff00')">ЖЕЛТАЯ ИЗО</div>
     <div class="iso-choice" style="background:#000; border: 2px solid white;" onclick="setIso('ЧЕРНАЯ ИЗО', '#000000')">ЧЕРНАЯ ИЗО</div>
     <div class="iso-choice" style="background:#fff; color:#000; border: 2px solid #ccc;" onclick="setIso('БЕЛАЯ ИЗО', '#ffffff')">БЕЛАЯ ИЗО</div>
     
@@ -61,7 +61,7 @@
 
 <script>
     const canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d');
-    const inkCanvas = document.createElement('canvas'); // Скрытый холст для хранения рисунка
+    const inkCanvas = document.createElement('canvas'); 
     const ictx = inkCanvas.getContext('2d');
 
     let history = [], baseImage = null;
@@ -71,6 +71,16 @@
     window.onload = () => {
         canvas.width = window.innerWidth; canvas.height = window.innerHeight;
         inkCanvas.width = canvas.width; inkCanvas.height = canvas.height;
+
+        // ВОССТАНОВЛЕНИЕ ДАННЫХ ПРИ ПЕРЕЗАГРУЗКЕ
+        const savedSticky = localStorage.getItem('isSticky');
+        const savedNote = localStorage.getItem('savedNote');
+        if (savedSticky === 'true') {
+            isStickyNote = true;
+            currentNote = savedNote || "";
+            document.getElementById('sticky-indicator').style.display = 'block';
+        }
+
         navigator.geolocation.watchPosition(p => {
             lastGPS = { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy };
             const gDiv = document.getElementById('gps-live');
@@ -87,7 +97,14 @@
             img.onload = () => { 
                 baseImage = img; 
                 ictx.clearRect(0,0,inkCanvas.width,inkCanvas.height);
-                if (!isStickyNote) currentNote = "";
+                
+                // Если галка НЕ стоит, стираем текст при новом фото
+                if (!isStickyNote) {
+                    currentNote = "";
+                    localStorage.removeItem('savedNote');
+                    localStorage.removeItem('isSticky');
+                }
+                
                 gpsStamp = null; isoStamp = null; history = [];
                 render(); 
             };
@@ -102,15 +119,12 @@
         const w = baseImage.width*ratio, h = baseImage.height*ratio;
         ctx.fillStyle = "#000"; ctx.fillRect(0,0,canvas.width,canvas.height);
         ctx.drawImage(baseImage, (canvas.width-w)/2, (canvas.height-h)/2, w, h);
-        
-        // НАКЛАДЫВАЕМ РИСУНОК ПОВЕРХ ФОТО
         ctx.drawImage(inkCanvas, 0, 0);
-        
         drawUI();
     }
 
     function drawUI() {
-        if (isoStamp) {
+        if (isoStamp && isoStamp.label) {
             ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(10, 45, 170, 55);
             ctx.strokeStyle = isoStamp.color; ctx.lineWidth = 3; ctx.strokeRect(10, 45, 170, 55);
             ctx.fillStyle = "white"; ctx.font = "bold 13px Arial"; ctx.textAlign = "center";
@@ -139,16 +153,17 @@
         }
     }
 
-    // Рисуем на вспомогательном холсте, чтобы не стерлось
     canvas.addEventListener('touchstart', e => { 
-        drawing = true; 
-        ictx.beginPath(); ictx.moveTo(e.touches[0].clientX, e.touches[0].clientY); 
+        drawing = true; ictx.beginPath(); 
+        const rect = canvas.getBoundingClientRect();
+        ictx.moveTo(e.touches[0].clientX - rect.left, e.touches[0].clientY - rect.top); 
     });
     canvas.addEventListener('touchmove', e => { 
         if (!drawing) return; e.preventDefault(); 
+        const rect = canvas.getBoundingClientRect();
         ictx.strokeStyle = "red"; ictx.lineWidth = 4; ictx.lineCap = "round";
-        ictx.lineTo(e.touches[0].clientX, e.touches[0].clientY); ictx.stroke();
-        render(); // Обновляем основной экран
+        ictx.lineTo(e.touches[0].clientX - rect.left, e.touches[0].clientY - rect.top); ictx.stroke();
+        render();
     });
     canvas.addEventListener('touchend', () => { drawing = false; saveStep(); });
 
@@ -162,18 +177,31 @@
         if (n !== null) {
             currentNote = n;
             isStickyNote = confirm("Закрепить описание?");
+            
+            // Сохраняем состояние
+            localStorage.setItem('savedNote', currentNote);
+            localStorage.setItem('isSticky', isStickyNote);
+            
             document.getElementById('sticky-indicator').style.display = isStickyNote ? 'block' : 'none';
             render(); saveStep();
         }
     }
 
-    function startSave(t) { isoStamp = { type: t }; document.getElementById('modal-iso').style.display = 'flex'; }
-    function setIso(l, c) {
-        isoStamp.label = l; isoStamp.color = c;
+    function startSave(t) { 
+        isoStamp = { type: t }; 
+        document.getElementById('modal-iso').style.display = 'flex'; 
+    }
+
+    function setIso(label, color) {
+        isoStamp.label = label; 
+        isoStamp.color = color;
         document.getElementById('modal-iso').style.display = 'none';
         render();
-        document.getElementById('save-img').src = canvas.toDataURL("image/png");
-        document.getElementById('save-screen').style.display = 'flex';
+        // Даем небольшую задержку, чтобы канвас отрисовался перед скриншотом
+        setTimeout(() => {
+            document.getElementById('save-img').src = canvas.toDataURL("image/png");
+            document.getElementById('save-screen').style.display = 'flex';
+        }, 100);
     }
 
     function downloadImg() {
@@ -186,22 +214,22 @@
     function closeSave() { document.getElementById('save-screen').style.display = 'none'; }
     
     function saveStep() { 
-        // Сохраняем и фото, и рисунок в историю
-        history.push({img: baseImage ? baseImage.src : null, ink: inkCanvas.toDataURL()}); 
+        history.push({ink: inkCanvas.toDataURL()}); 
         if(history.length > 10) history.shift(); 
     }
 
     function undo() {
-        if(history.length > 1) {
+        if(history.length > 0) {
             history.pop();
-            const state = history[history.length-1];
-            const ink = new Image();
-            ink.onload = () => {
-                ictx.clearRect(0,0,inkCanvas.width,inkCanvas.height);
-                ictx.drawImage(ink, 0, 0);
+            ictx.clearRect(0,0,inkCanvas.width,inkCanvas.height);
+            if (history.length > 0) {
+                const state = history[history.length-1];
+                const ink = new Image();
+                ink.onload = () => { ictx.drawImage(ink, 0, 0); render(); };
+                ink.src = state.ink;
+            } else {
                 render();
-            };
-            ink.src = state.ink;
+            }
         }
     }
 </script>
