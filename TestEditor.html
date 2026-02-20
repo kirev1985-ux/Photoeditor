@@ -190,7 +190,10 @@
 
 <script>
 const tg = window.Telegram && Telegram.WebApp ? Telegram.WebApp : null;
-if (tg) tg.expand();
+if (tg) {
+    tg.ready();
+    tg.expand();
+}
 
 const video = document.getElementById('video');
 const overlay = document.getElementById('overlay');
@@ -259,7 +262,6 @@ function resize() {
     let vh = video.videoHeight;
 
     if (!vw || !vh) {
-        // fallback, если WebView не отдаёт размеры
         vw = 720;
         vh = 1280;
     }
@@ -337,7 +339,7 @@ overlay.addEventListener('touchmove', e => {
     octx.stroke();
 });
 
-// TOUCH END (единый обработчик)
+// TOUCH END
 overlay.addEventListener('touchend', e => {
     e.preventDefault();
     drawing = false;
@@ -387,9 +389,7 @@ function saveState() {
     try {
         history.push(octx.getImageData(0, 0, overlay.width, overlay.height));
         if (history.length > 20) history.shift();
-    } catch (e) {
-        // на всякий случай, если canvas ещё не готов
-    }
+    } catch (e) {}
 }
 
 function undo() {
