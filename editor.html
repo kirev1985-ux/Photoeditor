@@ -2,14 +2,18 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>PhotoEditor V27 - Pro Upgrade</title>
+    <title>PhotoEditor V28 - GeoCheck</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         body { margin: 0; background: #000; font-family: sans-serif; overflow: hidden; color: white; touch-action: none; }
         canvas { display: block; background: #111; margin: 0 auto; touch-action: none; cursor: crosshair; }
-        #gps-live { position: fixed; top: 0; left: 0; width: 100%; background: rgba(0,0,0,0.8); font-size: 11px; padding: 5px; text-align: center; z-index: 20; pointer-events: none; }
         
-        #side-menu { position: fixed; right: 10px; top: 40px; display: flex; flex-direction: column; gap: 8px; z-index: 10; }
+        /* Измененный блок для GPS и Адреса */
+        #top-info-box { position: fixed; top: 0; left: 0; width: 100%; background: rgba(0,0,0,0.8); padding: 5px 0; text-align: center; z-index: 20; pointer-events: none; }
+        #gps-live { font-size: 12px; font-weight: bold; }
+        #address-live { font-size: 10px; color: #ccc; margin-top: 3px; font-weight: normal; }
+        
+        #side-menu { position: fixed; right: 10px; top: 50px; display: flex; flex-direction: column; gap: 8px; z-index: 10; }
         .btn-side { width: 52px; height: 52px; background: #333; border: 1px solid #555; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 20px; position: relative; cursor: pointer; transition: 0.2s;}
         .btn-label { font-size: 9px; font-weight: bold; margin-top: 2px; }
         
@@ -28,7 +32,11 @@
 </head>
 <body>
 
-<div id="gps-live">Ожидание GPS...</div>
+<div id="top-info-box">
+    <div id="gps-live">Ожидание GPS...</div>
+    <div id="address-live">Поиск адреса...</div>
+</div>
+
 <canvas id="canvas"></canvas>
 
 <div id="side-menu">
@@ -90,15 +98,15 @@
     let lastGPS = { lat: 0, lon: 0, acc: 0 }, drawing = false;
     let isEraser = false;
 
-    // Переменные для зума и панорамирования
     let scale = 1, panX = 0, panY = 0;
     let lastTouchDist = 0, lastTouchCenter = { x: 0, y: 0 };
+    
+    let lastGeocodeTime = 0; // Для ограничения запросов к геокодеру
 
     window.onload = () => {
         canvas.width = window.innerWidth; 
         canvas.height = window.innerHeight;
 
-        // Восстановление данных
         const savedSticky = localStorage.getItem('isSticky');
         const savedNote = localStorage.getItem('savedNote');
         const savedIsoStr = localStorage.getItem('savedIso');
@@ -119,10 +127,50 @@
             const gDiv = document.getElementById('gps-live');
             gDiv.style.color = lastGPS.acc > 15 ? '#ff4444' : '#00ff00';
             gDiv.innerText = `GPS: ${lastGPS.lat.toFixed(6)}, ${lastGPS.lon.toFixed(6)} (±${lastGPS.acc.toFixed(1)}м)`;
+            
+            // Вызов геокодера для адреса
+            fetchAddress(lastGPS.lat, lastGPS.lon);
+            
         }, null, { enableHighAccuracy: true });
 
         render();
     };
+
+    // --- ЛОГИКА ОПРЕДЕЛЕНИЯ АДРЕСА ---
+    function fetchAddress(lat, lon) {
+        const now = Date.now();
+        // Ограничение: запрашиваем адрес не чаще, чем раз в 10 секунд
+        if (now - lastGeocodeTime < 10000) return;
+        lastGeocodeTime = now;
+
+        // Используем бесплатный API Nominatim от OpenStreetMap
+        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`, {
+            headers: { 'Accept-Language': 'ru-RU,ru' }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data && data.address) {
+                const a = data.address;
+                const street = a.road || a.pedestrian || a.suburb || "";
+                const house = a.house_number || "";
+                const city = a.city || a.town || a.village || "";
+                
+                let resArr = [];
+                if (street) resArr.push(street);
+                if (house) resArr.push(house);
+                if (city) resArr.push(city);
+                
+                const finalAddress = resArr.length > 0 ? resArr.join(', ') : (data.display_name || "Адрес не найден");
+                document.getElementById('address-live').innerText = finalAddress;
+            } else {
+                document.getElementById('address-live').innerText = "Вне зоны дорог/зданий";
+            }
+        })
+        .catch(err => {
+            document.getElementById('address-live').innerText = "Ошибка загрузки адреса";
+        });
+    }
+    // ---------------------------------
 
     function loadPhoto(input) {
         if (!input.files[0]) return;
@@ -131,19 +179,15 @@
             const img = new Image();
             img.onload = () => { 
                 baseImage = img; 
-                
-                // Делаем слой рисунка размером с фото для точности
                 inkCanvas.width = img.width; 
                 inkCanvas.height = img.height;
                 ictx.clearRect(0,0,inkCanvas.width,inkCanvas.height);
 
-                // Подгоняем фото под экран при загрузке
                 const ratio = Math.min(canvas.width / img.width, canvas.height / img.height);
                 scale = ratio;
                 panX = (canvas.width - img.width * scale) / 2;
                 panY = (canvas.height - img.height * scale) / 2;
                 
-                // Проверяем закрепления
                 if (!isStickyNote) { currentNote = ""; localStorage.removeItem('savedNote'); localStorage.removeItem('isSticky'); }
                 if (!currentIso.sticky) { currentIso = { label: '', color: '#fff', sticky: false }; updateIsoBtn(); }
                 
@@ -169,7 +213,7 @@
         drawUI();
     }
 
-    // Интерфейс рисуется поверх зума, чтобы штампы всегда были по краям
+    // Обрати внимание: в drawUI мы НЕ рисуем address-live на самом фото
     function drawUI() {
         if (activeTypeStamp && currentIso.label) {
             ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(10, 45, 170, 55);
@@ -200,7 +244,6 @@
         }
     }
 
-    // Логика тапов, рисования и зума
     function getTouchDist(t) { return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY); }
     function getTouchCenter(t) { return { x: (t[0].clientX + t[1].clientX) / 2, y: (t[0].clientY + t[1].clientY) / 2 }; }
     function screenToCanvas(x, y) { return { x: (x - panX) / scale, y: (y - panY) / scale }; }
@@ -237,7 +280,7 @@
             const pt = screenToCanvas(e.touches[0].clientX, e.touches[0].clientY);
             ictx.globalCompositeOperation = isEraser ? "destination-out" : "source-over";
             ictx.strokeStyle = "red"; 
-            ictx.lineWidth = isEraser ? 35 / scale : 5 / scale; // Кисть масштабируется
+            ictx.lineWidth = isEraser ? 35 / scale : 5 / scale; 
             ictx.lineCap = "round"; 
             ictx.lineTo(pt.x, pt.y); ictx.stroke();
             render();
@@ -245,7 +288,6 @@
     });
     canvas.addEventListener('touchend', e => { if (drawing && e.touches.length === 0) saveStep(); drawing = false; });
 
-    // Инструменты
     function toggleTool() {
         isEraser = !isEraser;
         const btn = document.getElementById('btn-tool');
@@ -254,7 +296,7 @@
     }
 
     function toggleGPS() {
-        gpsStamp = { text: `📍 ${lastGPS.lat.toFixed(6)}, ${lastGPS.lon.toFixed(6)} (±${lastGPS.acc.toFixed(1)}м)`, acc: lastGPS.acc };
+        gpsStamp = { text: `📍 ${lastGPS.lat.toFixed(6)}, ${lastGPS.lon.toFixed(6)}`, acc: lastGPS.acc };
         render(); saveStep();
     }
 
@@ -270,7 +312,6 @@
         }
     }
 
-    // Меню ИЗО
     function openIsoMenu() { document.getElementById('modal-iso').style.display = 'flex'; }
     function setIso(label, color) {
         currentIso.label = label; 
@@ -291,7 +332,7 @@
         if (currentIso.label) {
             box.style.background = currentIso.color;
             lbl.style.color = (currentIso.color === '#ffffff' || currentIso.color === '#ffff00') ? '#000' : '#fff';
-            document.getElementById('iso-icon').style.display = 'none'; // прячем иконку
+            document.getElementById('iso-icon').style.display = 'none'; 
         } else {
             box.style.background = '#333';
             lbl.style.color = '#fff';
@@ -300,15 +341,13 @@
         document.getElementById('iso-sticky-indicator').style.display = currentIso.sticky ? 'block' : 'none';
     }
 
-    // Сохранение
     function startSave(type) { 
         if (!currentIso.label) return alert("Сначала выбери цвет ИЗО в меню справа!");
         if (!baseImage) return alert("Сделай фото!");
         
         activeTypeStamp = type; 
-        render(); // Отрисовываем штамп
+        render(); 
         
-        // Ждем миллисекунду и кидаем на скриншот
         setTimeout(() => {
             document.getElementById('save-img').src = canvas.toDataURL("image/png");
             document.getElementById('save-screen').style.display = 'flex';
@@ -317,18 +356,17 @@
 
     function downloadImg() {
         const link = document.createElement('a');
-        link.download = `клад_${Date.now()}.png`;
+        link.download = `photo_${Date.now()}.png`;
         link.href = canvas.toDataURL("image/png");
         link.click();
     }
     
     function closeSave() { 
         document.getElementById('save-screen').style.display = 'none'; 
-        activeTypeStamp = null; // убираем штамп при отмене
+        activeTypeStamp = null; 
         render();
     }
     
-    // История рисунков
     function saveStep() { 
         history.push({ink: inkCanvas.toDataURL()}); 
         if(history.length > 15) history.shift(); 
