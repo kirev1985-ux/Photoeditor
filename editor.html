@@ -2,13 +2,12 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>PhotoEditor V28 - GeoCheck</title>
+    <title>PhotoEditor V29 - Ultimate</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         body { margin: 0; background: #000; font-family: sans-serif; overflow: hidden; color: white; touch-action: none; }
         canvas { display: block; background: #111; margin: 0 auto; touch-action: none; cursor: crosshair; }
         
-        /* Измененный блок для GPS и Адреса */
         #top-info-box { position: fixed; top: 0; left: 0; width: 100%; background: rgba(0,0,0,0.8); padding: 5px 0; text-align: center; z-index: 20; pointer-events: none; }
         #gps-live { font-size: 12px; font-weight: bold; }
         #address-live { font-size: 10px; color: #ccc; margin-top: 3px; font-weight: normal; }
@@ -83,7 +82,7 @@
 
 <div id="save-screen">
     <img id="save-img" style="max-width: 90%; max-height: 55%; border: 2px solid white; margin-bottom: 20px;">
-    <button class="save-ui-btn" style="background:#28a745; color:white;" onclick="downloadImg()">💾 СКАЧАТЬ В ГАЛЕРЕЮ</button>
+    <button class="save-ui-btn" style="background:#28a745; color:white;" onclick="downloadImg()">💾 СКАЧАТЬ ФИНАЛ</button>
     <button class="save-ui-btn" style="background:#555; color:white;" onclick="closeSave()">← ВЕРНУТЬСЯ</button>
 </div>
 
@@ -100,8 +99,7 @@
 
     let scale = 1, panX = 0, panY = 0;
     let lastTouchDist = 0, lastTouchCenter = { x: 0, y: 0 };
-    
-    let lastGeocodeTime = 0; // Для ограничения запросов к геокодеру
+    let lastGeocodeTime = 0;
 
     window.onload = () => {
         canvas.width = window.innerWidth; 
@@ -128,22 +126,17 @@
             gDiv.style.color = lastGPS.acc > 15 ? '#ff4444' : '#00ff00';
             gDiv.innerText = `GPS: ${lastGPS.lat.toFixed(6)}, ${lastGPS.lon.toFixed(6)} (±${lastGPS.acc.toFixed(1)}м)`;
             
-            // Вызов геокодера для адреса
             fetchAddress(lastGPS.lat, lastGPS.lon);
-            
         }, null, { enableHighAccuracy: true });
 
         render();
     };
 
-    // --- ЛОГИКА ОПРЕДЕЛЕНИЯ АДРЕСА ---
     function fetchAddress(lat, lon) {
         const now = Date.now();
-        // Ограничение: запрашиваем адрес не чаще, чем раз в 10 секунд
         if (now - lastGeocodeTime < 10000) return;
         lastGeocodeTime = now;
 
-        // Используем бесплатный API Nominatim от OpenStreetMap
         fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`, {
             headers: { 'Accept-Language': 'ru-RU,ru' }
         })
@@ -160,8 +153,7 @@
                 if (house) resArr.push(house);
                 if (city) resArr.push(city);
                 
-                const finalAddress = resArr.length > 0 ? resArr.join(', ') : (data.display_name || "Адрес не найден");
-                document.getElementById('address-live').innerText = finalAddress;
+                document.getElementById('address-live').innerText = resArr.length > 0 ? resArr.join(', ') : (data.display_name || "Адрес не найден");
             } else {
                 document.getElementById('address-live').innerText = "Вне зоны дорог/зданий";
             }
@@ -170,7 +162,6 @@
             document.getElementById('address-live').innerText = "Ошибка загрузки адреса";
         });
     }
-    // ---------------------------------
 
     function loadPhoto(input) {
         if (!input.files[0]) return;
@@ -192,11 +183,46 @@
                 if (!currentIso.sticky) { currentIso = { label: '', color: '#fff', sticky: false }; updateIsoBtn(); }
                 
                 gpsStamp = null; activeTypeStamp = null; history = [];
+                
+                // Автосохранение бэкапа (только с камеры)
+                if (input.id === 'camInput') {
+                    autoSaveWithGPS(img);
+                }
+
                 render(); 
             };
             img.src = e.target.result;
         };
         reader.readAsDataURL(input.files[0]);
+    }
+
+    function autoSaveWithGPS(img) {
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = img.width;
+        tempCanvas.height = img.height;
+        const tempCtx = tempCanvas.getContext('2d');
+        
+        tempCtx.drawImage(img, 0, 0);
+        
+        if (lastGPS && lastGPS.lat !== 0) {
+            const gpsText = `📍 ${lastGPS.lat.toFixed(6)}, ${lastGPS.lon.toFixed(6)} (±${lastGPS.acc.toFixed(1)}м)`;
+            const barHeight = Math.max(50, img.height * 0.05); 
+            const fontSize = Math.max(20, img.height * 0.025); 
+            
+            tempCtx.fillStyle = "rgba(0,0,0,0.8)"; 
+            tempCtx.fillRect(0, img.height - barHeight, img.width, barHeight);
+            
+            tempCtx.fillStyle = lastGPS.acc > 15 ? "#ff4444" : "#00ff00";
+            tempCtx.font = `bold ${fontSize}px Arial`; 
+            tempCtx.textAlign = "center";
+            tempCtx.textBaseline = "middle";
+            tempCtx.fillText(gpsText, img.width / 2, img.height - (barHeight / 2));
+        }
+
+        const link = document.createElement('a');
+        link.download = `BACKUP_${Date.now()}.jpg`;
+        link.href = tempCanvas.toDataURL("image/jpeg", 0.9); 
+        link.click();
     }
 
     function render() {
@@ -213,7 +239,6 @@
         drawUI();
     }
 
-    // Обрати внимание: в drawUI мы НЕ рисуем address-live на самом фото
     function drawUI() {
         if (activeTypeStamp && currentIso.label) {
             ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(10, 45, 170, 55);
