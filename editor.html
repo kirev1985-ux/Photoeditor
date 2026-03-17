@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>PhotoEditor V29 - Ultimate</title>
+    <title>PhotoEditor V30 - Smart HD Engine</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         body { margin: 0; background: #000; font-family: sans-serif; overflow: hidden; color: white; touch-action: none; }
@@ -82,11 +82,13 @@
 
 <div id="save-screen">
     <img id="save-img" style="max-width: 90%; max-height: 55%; border: 2px solid white; margin-bottom: 20px;">
-    <button class="save-ui-btn" style="background:#28a745; color:white;" onclick="downloadImg()">💾 СКАЧАТЬ ФИНАЛ</button>
+    <button class="save-ui-btn" style="background:#28a745; color:white;" onclick="downloadFinalImg()">💾 СКАЧАТЬ ФИНАЛ (HD)</button>
     <button class="save-ui-btn" style="background:#555; color:white;" onclick="closeSave()">← ВЕРНУТЬСЯ</button>
 </div>
 
 <script>
+    const MAX_IMG_SIZE = 2560; // Идеальный баланс: QHD качество, не жрет память
+
     const canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d');
     const inkCanvas = document.createElement('canvas'), ictx = inkCanvas.getContext('2d');
 
@@ -144,14 +146,10 @@
         .then(data => {
             if (data && data.address) {
                 const a = data.address;
-                const street = a.road || a.pedestrian || a.suburb || "";
-                const house = a.house_number || "";
-                const city = a.city || a.town || a.village || "";
-                
                 let resArr = [];
-                if (street) resArr.push(street);
-                if (house) resArr.push(house);
-                if (city) resArr.push(city);
+                if (a.road || a.pedestrian || a.suburb) resArr.push(a.road || a.pedestrian || a.suburb);
+                if (a.house_number) resArr.push(a.house_number);
+                if (a.city || a.town || a.village) resArr.push(a.city || a.town || a.village);
                 
                 document.getElementById('address-live').innerText = resArr.length > 0 ? resArr.join(', ') : (data.display_name || "Адрес не найден");
             } else {
@@ -169,25 +167,37 @@
         reader.onload = (e) => {
             const img = new Image();
             img.onload = () => { 
-                baseImage = img; 
-                inkCanvas.width = img.width; 
-                inkCanvas.height = img.height;
-                ictx.clearRect(0,0,inkCanvas.width,inkCanvas.height);
+                // СМАРТ-МАСШТАБИРОВАНИЕ ДЛЯ 4 ГБ ОЗУ
+                let w = img.width, h = img.height;
+                if (w > MAX_IMG_SIZE || h > MAX_IMG_SIZE) {
+                    const ratio = Math.min(MAX_IMG_SIZE / w, MAX_IMG_SIZE / h);
+                    w = Math.round(w * ratio);
+                    h = Math.round(h * ratio);
+                }
+                
+                // Создаем оптимизированную базовую картинку
+                const optCanvas = document.createElement('canvas');
+                optCanvas.width = w; optCanvas.height = h;
+                const optCtx = optCanvas.getContext('2d');
+                optCtx.drawImage(img, 0, 0, w, h);
+                
+                baseImage = optCanvas; 
+                inkCanvas.width = w; 
+                inkCanvas.height = h;
+                ictx.clearRect(0,0,w,h);
 
-                const ratio = Math.min(canvas.width / img.width, canvas.height / img.height);
+                const ratio = Math.min(canvas.width / w, canvas.height / h);
                 scale = ratio;
-                panX = (canvas.width - img.width * scale) / 2;
-                panY = (canvas.height - img.height * scale) / 2;
+                panX = (canvas.width - w * scale) / 2;
+                panY = (canvas.height - h * scale) / 2;
                 
                 if (!isStickyNote) { currentNote = ""; localStorage.removeItem('savedNote'); localStorage.removeItem('isSticky'); }
                 if (!currentIso.sticky) { currentIso = { label: '', color: '#fff', sticky: false }; updateIsoBtn(); }
                 
                 gpsStamp = null; activeTypeStamp = null; history = [];
                 
-                // Автосохранение бэкапа (только с камеры)
-                if (input.id === 'camInput') {
-                    autoSaveWithGPS(img);
-                }
+                // Автосохранение бэкапа
+                if (input.id === 'camInput') autoSaveWithGPS(optCanvas);
 
                 render(); 
             };
@@ -196,36 +206,37 @@
         reader.readAsDataURL(input.files[0]);
     }
 
-    function autoSaveWithGPS(img) {
+    function autoSaveWithGPS(optCanvas) {
         const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = img.width;
-        tempCanvas.height = img.height;
+        tempCanvas.width = optCanvas.width;
+        tempCanvas.height = optCanvas.height;
         const tempCtx = tempCanvas.getContext('2d');
         
-        tempCtx.drawImage(img, 0, 0);
+        tempCtx.drawImage(optCanvas, 0, 0);
         
         if (lastGPS && lastGPS.lat !== 0) {
             const gpsText = `📍 ${lastGPS.lat.toFixed(6)}, ${lastGPS.lon.toFixed(6)} (±${lastGPS.acc.toFixed(1)}м)`;
-            const barHeight = Math.max(50, img.height * 0.05); 
-            const fontSize = Math.max(20, img.height * 0.025); 
+            const barHeight = Math.max(40, tempCanvas.height * 0.04); 
+            const fontSize = Math.max(16, tempCanvas.height * 0.02); 
             
             tempCtx.fillStyle = "rgba(0,0,0,0.8)"; 
-            tempCtx.fillRect(0, img.height - barHeight, img.width, barHeight);
+            tempCtx.fillRect(0, tempCanvas.height - barHeight, tempCanvas.width, barHeight);
             
             tempCtx.fillStyle = lastGPS.acc > 15 ? "#ff4444" : "#00ff00";
             tempCtx.font = `bold ${fontSize}px Arial`; 
             tempCtx.textAlign = "center";
             tempCtx.textBaseline = "middle";
-            tempCtx.fillText(gpsText, img.width / 2, img.height - (barHeight / 2));
+            tempCtx.fillText(gpsText, tempCanvas.width / 2, tempCanvas.height - (barHeight / 2));
         }
 
         const link = document.createElement('a');
         link.download = `BACKUP_${Date.now()}.jpg`;
-        link.href = tempCanvas.toDataURL("image/jpeg", 0.9); 
+        link.href = tempCanvas.toDataURL("image/jpeg", 0.9); // Быстрый JPEG 90%
         link.click();
     }
 
     function render() {
+        ctx.imageSmoothingEnabled = false; // Отключаем мыло для предпросмотра
         ctx.fillStyle = "#000"; ctx.fillRect(0,0,canvas.width,canvas.height);
         
         if (baseImage) {
@@ -239,6 +250,7 @@
         drawUI();
     }
 
+    // Эта функция рисует интерфейс ТОЛЬКО на экране телефона
     function drawUI() {
         if (activeTypeStamp && currentIso.label) {
             ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(10, 45, 170, 55);
@@ -305,6 +317,7 @@
             const pt = screenToCanvas(e.touches[0].clientX, e.touches[0].clientY);
             ictx.globalCompositeOperation = isEraser ? "destination-out" : "source-over";
             ictx.strokeStyle = "red"; 
+            // Адаптивная толщина кисти:
             ictx.lineWidth = isEraser ? 35 / scale : 5 / scale; 
             ictx.lineCap = "round"; 
             ictx.lineTo(pt.x, pt.y); ictx.stroke();
@@ -339,28 +352,21 @@
 
     function openIsoMenu() { document.getElementById('modal-iso').style.display = 'flex'; }
     function setIso(label, color) {
-        currentIso.label = label; 
-        currentIso.color = color;
+        currentIso.label = label; currentIso.color = color;
         currentIso.sticky = confirm(`Закрепить [${label}]?`);
-        
         if (currentIso.sticky) localStorage.setItem('savedIso', JSON.stringify(currentIso));
         else localStorage.removeItem('savedIso');
-        
-        updateIsoBtn();
-        document.getElementById('modal-iso').style.display = 'none';
-        render();
+        updateIsoBtn(); document.getElementById('modal-iso').style.display = 'none'; render();
     }
     
     function updateIsoBtn() {
-        const box = document.getElementById('btn-iso-box');
-        const lbl = document.getElementById('btn-iso-label');
+        const box = document.getElementById('btn-iso-box'), lbl = document.getElementById('btn-iso-label');
         if (currentIso.label) {
             box.style.background = currentIso.color;
             lbl.style.color = (currentIso.color === '#ffffff' || currentIso.color === '#ffff00') ? '#000' : '#fff';
             document.getElementById('iso-icon').style.display = 'none'; 
         } else {
-            box.style.background = '#333';
-            lbl.style.color = '#fff';
+            box.style.background = '#333'; lbl.style.color = '#fff';
             document.getElementById('iso-icon').style.display = 'block';
         }
         document.getElementById('iso-sticky-indicator').style.display = currentIso.sticky ? 'block' : 'none';
@@ -374,15 +380,69 @@
         render(); 
         
         setTimeout(() => {
-            document.getElementById('save-img').src = canvas.toDataURL("image/png");
+            // Для превью на экране сохраняем "легкий" вариант
+            document.getElementById('save-img').src = canvas.toDataURL("image/jpeg", 0.7);
             document.getElementById('save-screen').style.display = 'flex';
         }, 50);
     }
 
-    function downloadImg() {
+    // НОВАЯ ФУНКЦИЯ HD-СБОРКИ И СОХРАНЕНИЯ
+    function downloadFinalImg() {
+        const finalCanvas = document.createElement('canvas');
+        finalCanvas.width = baseImage.width;
+        finalCanvas.height = baseImage.height;
+        const fctx = finalCanvas.getContext('2d');
+
+        // Рисуем базовое HD-фото и рисунок 1:1
+        fctx.drawImage(baseImage, 0, 0);
+        fctx.drawImage(inkCanvas, 0, 0);
+
+        // Масштабируем текст и элементы под размер фото
+        const sf = baseImage.width / canvas.width;
+
+        if (activeTypeStamp && currentIso.label) {
+            fctx.save();
+            fctx.scale(sf, sf);
+            fctx.fillStyle = "rgba(0,0,0,0.8)"; fctx.fillRect(10, 45, 170, 55);
+            fctx.strokeStyle = currentIso.color; fctx.lineWidth = 3; fctx.strokeRect(10, 45, 170, 55);
+            fctx.fillStyle = "white"; fctx.font = "bold 13px Arial"; fctx.textAlign = "center";
+            fctx.fillText(activeTypeStamp, 95, 65);
+            fctx.fillStyle = currentIso.color; fctx.fillText(currentIso.label, 95, 87);
+            fctx.restore();
+        }
+
+        if (currentNote) {
+            fctx.save();
+            fctx.font = `bold ${18 * sf}px Arial`;
+            const words = currentNote.split(' '), lines = []; let line = '';
+            for (let n=0; n<words.length; n++) {
+                let test = line + words[n] + ' ';
+                if (fctx.measureText(test).width > baseImage.width - (40 * sf)) { lines.push(line); line = words[n] + ' '; }
+                else { line = test; }
+            }
+            lines.push(line);
+            const boxH = lines.length * (25 * sf) + (15 * sf);
+            fctx.fillStyle = "rgba(0,0,0,0.7)"; 
+            fctx.fillRect(0, baseImage.height - (100 * sf) - boxH, baseImage.width, boxH);
+            fctx.fillStyle = "white"; fctx.textAlign = "center";
+            lines.forEach((l, i) => fctx.fillText(l.trim(), baseImage.width/2, (baseImage.height - (95 * sf) - boxH) + (22 * sf) + (i * 25 * sf)));
+            fctx.restore();
+        }
+
+        if (gpsStamp) {
+            fctx.save();
+            fctx.fillStyle = "rgba(0,0,0,0.8)"; 
+            fctx.fillRect(0, baseImage.height - (100 * sf), baseImage.width, 40 * sf);
+            fctx.fillStyle = gpsStamp.acc > 15 ? "#ff4444" : "#00ff00";
+            fctx.font = `bold ${16 * sf}px Arial`; fctx.textAlign = "center";
+            fctx.fillText(gpsStamp.text, baseImage.width/2, baseImage.height - (75 * sf));
+            fctx.restore();
+        }
+
         const link = document.createElement('a');
-        link.download = `photo_${Date.now()}.png`;
-        link.href = canvas.toDataURL("image/png");
+        link.download = `FINAL_HD_${Date.now()}.jpg`;
+        // Сохраняем в JPEG с отличным качеством 90%
+        link.href = finalCanvas.toDataURL("image/jpeg", 0.9);
         link.click();
     }
     
