@@ -2,287 +2,1035 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>PhotoEditor V26 - Ink Fix</title>
+    <title>PhotoEditor V31 - GPS/ISO Upgrade</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
-        body { margin: 0; background: #000; font-family: sans-serif; overflow: hidden; color: white; touch-action: none; }
-        canvas { display: block; background: #111; margin: 0 auto; touch-action: none; }
-        #gps-live { position: fixed; top: 0; left: 0; width: 100%; background: rgba(0,0,0,0.8); font-size: 11px; padding: 5px; text-align: center; z-index: 20; }
-        #side-menu { position: fixed; right: 10px; top: 50px; display: flex; flex-direction: column; gap: 12px; z-index: 10; }
-        .btn-side { width: 56px; height: 56px; background: #333; border: 1px solid #555; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 22px; cursor: pointer; }
-        .btn-label { font-size: 10px; font-weight: bold; margin-top: -2px; }
-        #bottom-menu { position: fixed; bottom: 110px; width: 100%; display: flex; justify-content: center; align-items: center; gap: 30px; z-index: 10; }
-        .btn-cam { width: 80px; height: 80px; background: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40px; color: #000; border: 5px solid #444; cursor: pointer; }
-        #save-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 3000; }
-        .save-ui-btn { width: 85%; padding: 20px; margin: 10px; border-radius: 15px; font-weight: bold; font-size: 18px; text-align: center; border: none; cursor: pointer; }
-        #modal-iso { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 1001; }
-        .iso-choice { width: 240px; padding: 18px; margin: 8px; border-radius: 15px; text-align: center; font-weight: bold; font-size: 16px; cursor: pointer; }
-        #sticky-indicator { font-size: 12px; color: #0f0; display: none; position: absolute; top: -5px; right: -5px; background: #000; border-radius: 50%; width: 18px; height: 18px; text-align: center; border: 1px solid #0f0; line-height: 18px; }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: #000;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+            color: white;
+            touch-action: none;
+        }
+
+        canvas {
+            display: block;
+            background: #111;
+            margin: 0 auto;
+            touch-action: none;
+        }
+
+        #top-info-box {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background: rgba(0,0,0,0.86);
+            padding: 6px 10px 8px;
+            text-align: center;
+            z-index: 30;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+
+        #gps-live {
+            font-size: 12px;
+            font-weight: bold;
+            line-height: 1.35;
+        }
+
+        #address-live {
+            font-size: 10px;
+            color: #cfcfcf;
+            margin-top: 3px;
+            line-height: 1.3;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        #side-menu {
+            position: fixed;
+            right: 10px;
+            top: 64px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 20;
+        }
+
+        .btn-side {
+            width: 60px;
+            min-height: 60px;
+            background: #333;
+            border: 1px solid #555;
+            border-radius: 14px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            cursor: pointer;
+            position: relative;
+            padding: 4px;
+            text-align: center;
+            user-select: none;
+        }
+
+        .btn-label {
+            font-size: 9px;
+            font-weight: bold;
+            margin-top: 2px;
+            line-height: 1.05;
+            word-break: break-word;
+        }
+
+        .sticky-indicator {
+            font-size: 12px;
+            color: #0f0;
+            display: none;
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #000;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            text-align: center;
+            border: 1px solid #0f0;
+            line-height: 18px;
+            font-weight: bold;
+            z-index: 2;
+        }
+
+        #bottom-menu {
+            position: fixed;
+            bottom: 110px;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 18px;
+            z-index: 20;
+        }
+
+        .btn-cam {
+            width: 84px;
+            height: 84px;
+            background: #fff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            color: #000;
+            border: 5px solid #444;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .btn-gal {
+            width: 60px;
+            height: 60px;
+            background: #d9d9d9;
+            color: #000;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            border: 3px solid #555;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.95);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1001;
+            padding: 20px;
+        }
+
+        .modal h3 {
+            margin: 0 0 14px;
+            text-align: center;
+        }
+
+        .choice-wrap {
+            width: min(92vw, 340px);
+            max-height: 65vh;
+            overflow-y: auto;
+        }
+
+        .iso-choice {
+            width: 100%;
+            padding: 16px 14px;
+            margin: 8px 0;
+            border-radius: 14px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 15px;
+            cursor: pointer;
+            border: 2px solid rgba(255,255,255,0.85);
+            user-select: none;
+        }
+
+        .modal-cancel {
+            margin-top: 16px;
+            color: #aaa;
+            cursor: pointer;
+            padding: 8px 14px;
+            font-size: 15px;
+            user-select: none;
+        }
+
+        #save-screen {
+            position: fixed;
+            inset: 0;
+            background: #000;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 3000;
+            padding: 16px;
+        }
+
+        #save-img {
+            max-width: 92%;
+            max-height: 52%;
+            border: 2px solid white;
+            margin-bottom: 18px;
+            object-fit: contain;
+        }
+
+        .save-ui-btn {
+            width: 90%;
+            max-width: 420px;
+            padding: 16px;
+            margin: 7px 0;
+            border-radius: 15px;
+            font-weight: bold;
+            font-size: 17px;
+            text-align: center;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hint-badge {
+            position: fixed;
+            left: 10px;
+            bottom: 18px;
+            z-index: 20;
+            background: rgba(0,0,0,0.75);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 8px 10px;
+            font-size: 11px;
+            color: #ddd;
+            max-width: 78vw;
+            line-height: 1.35;
+        }
     </style>
 </head>
 <body>
 
-<div id="gps-live">Ожидание GPS...</div>
+<div id="top-info-box">
+    <div id="gps-live">Ожидание GPS...</div>
+    <div id="address-live">Поиск адреса...</div>
+</div>
+
 <canvas id="canvas"></canvas>
 
 <div id="side-menu">
-    <div class="btn-side" onclick="toggleGPS()">📍<span class="btn-label">GPS</span></div>
+    <div class="btn-side" onclick="toggleGPS()">
+        📍<span class="btn-label">GPS</span>
+    </div>
+
     <div class="btn-side" style="position:relative;" onclick="updateNote()">
-        <div id="sticky-indicator">✓</div>
+        <div id="sticky-note-indicator" class="sticky-indicator">✓</div>
         📝<span class="btn-label">ТЕКСТ</span>
     </div>
-    <div class="btn-side" onclick="startSave('ТАЙНИК')">🧰<span class="btn-label">Т</span></div>
-    <div class="btn-side" onclick="startSave('МАГНИТ')">🧲<span class="btn-label">М</span></div>
+
+    <div id="btn-iso-color" class="btn-side" style="position:relative;" onclick="openIsoColorMenu()">
+        <div id="sticky-iso-indicator" class="sticky-indicator">✓</div>
+        <span id="iso-color-icon">🧷</span>
+        <span class="btn-label" id="iso-color-btn-label">ЦВЕТ<br>ИЗО</span>
+    </div>
+
+    <div class="btn-side" onclick="startSave('ТАЙНИК')">
+        🧰<span class="btn-label">ТАЙНИК</span>
+    </div>
+
+    <div class="btn-side" onclick="startSave('МАГНИТ')">
+        🧲<span class="btn-label">МАГНИТ</span>
+    </div>
+
+    <div class="btn-side" onclick="startSave('ПОДЪЕЗД')">
+        🏢<span class="btn-label">ПОДЪЕЗД</span>
+    </div>
 </div>
 
 <div id="bottom-menu">
-    <div class="btn-side" onclick="undo()">↩️</div>
-    <div class="btn-cam" onclick="document.getElementById('hiddenInput').click()">📷</div>
-    <div class="btn-side" onclick="location.reload()">🔄</div>
+    <div class="btn-side" onclick="undo()">↩️<span class="btn-label">НАЗАД</span></div>
+    <div class="btn-gal" onclick="document.getElementById('galleryInput').click()">🖼️</div>
+    <div class="btn-cam" onclick="document.getElementById('cameraInput').click()">📷</div>
+    <div class="btn-side" onclick="location.reload()">🔄<span class="btn-label">СБРОС</span></div>
 </div>
 
-<div id="modal-iso">
-    <h3>ВЫБЕРИТЕ ТИП:</h3>
-    <div class="iso-choice" style="background:#b00; border: 2px solid white;" onclick="setIso('КРАСНАЯ ИЗО', '#ff0000')">КРАСНАЯ ИЗО</div>
-    <div class="iso-choice" style="background:#b80; border: 2px solid white;" onclick="setIso('ЖЕЛТАЯ ИЗО', '#ffff00')">ЖЕЛТАЯ ИЗО</div>
-    <div class="iso-choice" style="background:#000; border: 2px solid white;" onclick="setIso('ЧЕРНАЯ ИЗО', '#000000')">ЧЕРНАЯ ИЗО</div>
-    
-    <div class="iso-choice" style="background:#ffffff; color:#000; border: 2px solid #ccc;" onclick="setIso('БЕЛАЯ ИЗО', '#ffffff')">БЕЛАЯ ИЗО</div>
-    
-    <div style="margin-top:20px; color:#aaa; cursor:pointer" onclick="document.getElementById('modal-iso').style.display='none'">ОТМЕНА</div>
+<div id="iso-color-modal" class="modal">
+    <h3>ВЫБЕРИТЕ ЦВЕТ ИЗО</h3>
+    <div class="choice-wrap" id="iso-color-list"></div>
+    <div class="modal-cancel" onclick="closeIsoColorMenu()">ОТМЕНА</div>
 </div>
-
-<input type="file" id="hiddenInput" accept="image/*" capture="environment" style="display:none" onchange="loadPhoto(this)">
 
 <div id="save-screen">
-    <img id="save-img" style="max-width: 90%; max-height: 55%; border: 2px solid white; margin-bottom: 20px;">
-    <button class="save-ui-btn" style="background:#28a745; color:white;" onclick="downloadImg()">💾 СКАЧАТЬ В ГАЛЕРЕЮ</button>
+    <img id="save-img" alt="preview">
+    <button class="save-ui-btn" style="background:#28a745; color:white;" onclick="downloadImg()">💾 СОХРАНИТЬ</button>
+    <button class="save-ui-btn" style="background:#0d6efd; color:white;" onclick="shareImg()">📤 ПОДЕЛИТЬСЯ</button>
     <button class="save-ui-btn" style="background:#555; color:white;" onclick="closeSave()">← ВЕРНУТЬСЯ</button>
+    <button class="save-ui-btn" style="background:#8b0000; color:white;" onclick="deleteCurrentPhoto()">🗑️ УДАЛИТЬ</button>
 </div>
 
+<div class="hint-badge" id="hintBox">
+    GPS: зелёный = хороший, жёлтый = средний, красный = сомнительный.
+</div>
+
+<input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none" onchange="loadPhoto(this, 'camera')">
+<input type="file" id="galleryInput" accept="image/*" style="display:none" onchange="loadPhoto(this, 'gallery')">
+
 <script>
-    const canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d');
-    const inkCanvas = document.createElement('canvas'); 
-    const ictx = inkCanvas.getContext('2d');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d', { alpha: false });
 
-    // Константы для полей (отступов)
-    const TOP_MARGIN = 110;    // Место сверху под штамп ИЗО
-    const BOTTOM_MARGIN = 140; // Место снизу под GPS и заметку
+const inkCanvas = document.createElement('canvas');
+const ictx = inkCanvas.getContext('2d');
 
-    let history = [], baseImage = null;
-    let currentNote = "", isStickyNote = false, gpsStamp = null, isoStamp = null;
-    let lastGPS = { lat: 0, lon: 0, acc: 0 }, drawing = false;
+const TOP_MARGIN = 120;
+const BOTTOM_MARGIN = 150;
+const MAX_LONG_SIDE = 2048;
 
-    window.onload = () => {
-        canvas.width = window.innerWidth; 
-        canvas.height = window.innerHeight;
-        inkCanvas.width = canvas.width; 
-        inkCanvas.height = canvas.height;
+const ISO_OPTIONS = [
+    { label: 'КРАСНАЯ ИЗО', color: '#ff2e2e', textColor: '#ff2e2e', borderColor: '#ff2e2e', btnIcon: '🟥' },
+    { label: 'ЖЕЛТАЯ ИЗО', color: '#ffe600', textColor: '#ffe600', borderColor: '#ffe600', btnIcon: '🟨' },
+    { label: 'БЕЛАЯ ИЗО', color: '#ffffff', textColor: '#ffffff', borderColor: '#ffffff', btnIcon: '⬜' },
+    { label: 'ЧЕРНАЯ ИЗО', color: '#000000', textColor: '#000000', borderColor: '#ffffff', btnIcon: '⬛', whiteOutline: true },
+    { label: 'СИНЯЯ ИЗО', color: '#2d7dff', textColor: '#2d7dff', borderColor: '#2d7dff', btnIcon: '🟦' },
+    { label: 'ЗЕЛЕНАЯ ИЗО', color: '#00c853', textColor: '#00c853', borderColor: '#00c853', btnIcon: '🟩' },
+    { label: 'КРАСНЫЙ СКОТЧ', color: '#ff3b30', textColor: '#ff3b30', borderColor: '#ff3b30', btnIcon: '🟥' },
+    { label: 'ЧЕРНЫЙ СКОТЧ', color: '#111111', textColor: '#111111', borderColor: '#ffffff', btnIcon: '⬛', whiteOutline: true },
+    { label: 'КАМЕНЬ', color: '#8d8d8d', textColor: '#bdbdbd', borderColor: '#9e9e9e', btnIcon: '🪨' }
+];
 
-        // Читаем напрямую из памяти
-        const savedNote = localStorage.getItem('savedNote');
-        const savedSticky = localStorage.getItem('isSticky');
+let history = [];
+let baseImage = null;
+let renderedImageCanvas = null;
 
-        if (savedSticky === 'true' && savedNote) {
-            isStickyNote = true;
-            currentNote = savedNote;
-            document.getElementById('sticky-indicator').style.display = 'block';
-            render(); 
+let currentNote = '';
+let isStickyNote = false;
+
+let currentIso = null;
+let isStickyIso = false;
+
+let gpsStamp = null;
+let stashType = null;
+
+let lastGPS = {
+    lat: 0,
+    lon: 0,
+    acc: 9999,
+    heading: null,
+    speed: null,
+    address: 'Поиск адреса...',
+    qualityText: 'нет фикса',
+    qualityColor: '#ff4444',
+    samples: []
+};
+
+let drawing = false;
+let geocodeTimer = null;
+let isSavePreviewFresh = false;
+
+window.onload = () => {
+    resizeUiCanvas();
+
+    const savedNote = localStorage.getItem('savedNote');
+    const savedSticky = localStorage.getItem('isStickyNote');
+    if (savedSticky === 'true' && savedNote) {
+        currentNote = savedNote;
+        isStickyNote = true;
+        document.getElementById('sticky-note-indicator').style.display = 'block';
+    }
+
+    const savedIso = localStorage.getItem('savedIso');
+    const savedIsoSticky = localStorage.getItem('isStickyIso');
+    if (savedIso) {
+        try {
+            currentIso = JSON.parse(savedIso);
+            isStickyIso = savedIsoSticky === 'true';
+        } catch (_) {}
+    }
+    updateIsoButton();
+
+    initIsoMenu();
+    startGPSWatch();
+    render();
+};
+
+window.addEventListener('resize', () => {
+    resizeUiCanvas();
+    render();
+});
+
+function resizeUiCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    inkCanvas.width = canvas.width;
+    inkCanvas.height = canvas.height;
+}
+
+function initIsoMenu() {
+    const list = document.getElementById('iso-color-list');
+    list.innerHTML = '';
+
+    ISO_OPTIONS.forEach(opt => {
+        const div = document.createElement('div');
+        div.className = 'iso-choice';
+        div.style.background = opt.color;
+        div.style.color = (opt.label === 'ЖЕЛТАЯ ИЗО' || opt.label === 'БЕЛАЯ ИЗО' || opt.label === 'КАМЕНЬ') ? '#111' : '#fff';
+        div.style.border = opt.whiteOutline ? '2px solid #fff' : `2px solid ${opt.borderColor}`;
+        div.innerHTML = `${opt.btnIcon} ${opt.label}`;
+        div.onclick = () => chooseIsoColor(opt);
+        list.appendChild(div);
+    });
+}
+
+function startGPSWatch() {
+    if (!navigator.geolocation) {
+        document.getElementById('gps-live').innerText = 'GPS недоступен в браузере';
+        document.getElementById('address-live').innerText = 'Геолокация не поддерживается';
+        return;
+    }
+
+    navigator.geolocation.watchPosition(
+        (p) => {
+            lastGPS.lat = p.coords.latitude;
+            lastGPS.lon = p.coords.longitude;
+            lastGPS.acc = p.coords.accuracy || 9999;
+            lastGPS.heading = p.coords.heading;
+            lastGPS.speed = p.coords.speed;
+
+            pushGpsSample(lastGPS.lat, lastGPS.lon, lastGPS.acc);
+            updateGpsQuality();
+            updateGpsLiveText();
+
+            if (!geocodeTimer) {
+                geocodeTimer = setTimeout(() => {
+                    geocodeTimer = null;
+                    fetchAddress(lastGPS.lat, lastGPS.lon);
+                }, 1200);
+            }
+        },
+        (err) => {
+            const map = {
+                1: 'Нет доступа к геолокации',
+                2: 'Позиция недоступна',
+                3: 'Таймаут GPS'
+            };
+            document.getElementById('gps-live').style.color = '#ff4444';
+            document.getElementById('gps-live').innerText = map[err.code] || 'Ошибка GPS';
+            document.getElementById('address-live').innerText = 'Проверь разрешение на геолокацию';
+        },
+        {
+            enableHighAccuracy: true,
+            maximumAge: 0,
+            timeout: 10000
+        }
+    );
+}
+
+function pushGpsSample(lat, lon, acc) {
+    lastGPS.samples.push({
+        lat,
+        lon,
+        acc,
+        t: Date.now()
+    });
+
+    if (lastGPS.samples.length > 8) {
+        lastGPS.samples.shift();
+    }
+}
+
+function updateGpsQuality() {
+    const acc = lastGPS.acc;
+    let color = '#00ff66';
+    let text = 'точно';
+
+    if (acc > 20) {
+        color = '#ff4444';
+        text = 'сомнительно';
+    } else if (acc > 10) {
+        color = '#ffd54f';
+        text = 'средне';
+    }
+
+    if (lastGPS.samples.length >= 3) {
+        const jitter = calcJitterMeters(lastGPS.samples);
+        if (jitter > 12) {
+            color = '#ff4444';
+            text = 'скачет';
+        } else if (jitter > 6 && text === 'точно') {
+            color = '#ffd54f';
+            text = 'плавает';
+        }
+    }
+
+    lastGPS.qualityColor = color;
+    lastGPS.qualityText = text;
+}
+
+function calcJitterMeters(samples) {
+    if (samples.length < 2) return 0;
+    const avgLat = samples.reduce((s, x) => s + x.lat, 0) / samples.length;
+    const avgLon = samples.reduce((s, x) => s + x.lon, 0) / samples.length;
+    let sum = 0;
+    for (const s of samples) {
+        sum += distanceMeters(avgLat, avgLon, s.lat, s.lon);
+    }
+    return sum / samples.length;
+}
+
+function distanceMeters(lat1, lon1, lat2, lon2) {
+    const R = 6371000;
+    const toRad = x => x * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function updateGpsLiveText() {
+    const gDiv = document.getElementById('gps-live');
+    gDiv.style.color = lastGPS.qualityColor;
+    gDiv.innerText =
+        `GPS: ${lastGPS.lat.toFixed(6)}, ${lastGPS.lon.toFixed(6)} ` +
+        `(±${lastGPS.acc.toFixed(1)}м) • ${lastGPS.qualityText}`;
+}
+
+async function fetchAddress(lat, lon) {
+    try {
+        const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`,
+            { headers: { 'Accept-Language': 'ru-RU,ru' } }
+        );
+
+        const data = await res.json();
+        let txt = 'Адрес не найден';
+
+        if (data && data.address) {
+            const a = data.address;
+            const parts = [];
+            if (a.road || a.pedestrian || a.footway || a.suburb) parts.push(a.road || a.pedestrian || a.footway || a.suburb);
+            if (a.house_number) parts.push(a.house_number);
+            if (a.city || a.town || a.village) parts.push(a.city || a.town || a.village);
+            if (parts.length > 0) txt = parts.join(', ');
+            else if (data.display_name) txt = data.display_name;
         }
 
-        navigator.geolocation.watchPosition(p => {
-            lastGPS = { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy };
-            const gDiv = document.getElementById('gps-live');
-            gDiv.style.color = lastGPS.acc > 15 ? '#ff4444' : '#00ff00';
-            gDiv.innerText = `GPS: ${lastGPS.lat.toFixed(6)}, ${lastGPS.lon.toFixed(6)} (±${lastGPS.acc.toFixed(1)}м)`;
-        }, null, { enableHighAccuracy: true });
+        lastGPS.address = txt;
+        document.getElementById('address-live').innerText = `Адрес: ${txt}`;
+    } catch (e) {
+        lastGPS.address = 'Ошибка загрузки адреса';
+        document.getElementById('address-live').innerText = 'Адрес: ошибка загрузки';
+    }
+}
+
+function chooseIsoColor(opt) {
+    currentIso = {
+        label: opt.label,
+        color: opt.color,
+        textColor: opt.textColor,
+        borderColor: opt.borderColor,
+        btnIcon: opt.btnIcon,
+        whiteOutline: !!opt.whiteOutline
     };
 
-    function loadPhoto(input) {
-        if (!input.files[0]) return;
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const img = new Image();
-            img.onload = () => { 
-                baseImage = img; 
-                ictx.clearRect(0,0,inkCanvas.width,inkCanvas.height);
-                
-                // Если галка НЕ стоит, стираем текст при новом фото
-                if (!isStickyNote) {
-                    currentNote = "";
-                    localStorage.removeItem('savedNote');
-                    localStorage.removeItem('isSticky');
-                }
-                
-                gpsStamp = null; isoStamp = null; history = [];
-                render(); 
-            };
-            img.src = e.target.result;
+    isStickyIso = confirm(`Закрепить "${opt.label}"?`);
+    if (isStickyIso) {
+        localStorage.setItem('savedIso', JSON.stringify(currentIso));
+        localStorage.setItem('isStickyIso', 'true');
+    } else {
+        localStorage.removeItem('savedIso');
+        localStorage.setItem('isStickyIso', 'false');
+    }
+
+    updateIsoButton();
+    saveStep();
+    render();
+    closeIsoColorMenu();
+}
+
+function updateIsoButton() {
+    const ind = document.getElementById('sticky-iso-indicator');
+    const icon = document.getElementById('iso-color-icon');
+    const label = document.getElementById('iso-color-btn-label');
+    const btn = document.getElementById('btn-iso-color');
+
+    if (isStickyIso) ind.style.display = 'block';
+    else ind.style.display = 'none';
+
+    if (currentIso) {
+        btn.style.background = currentIso.color;
+        btn.style.borderColor = currentIso.whiteOutline ? '#fff' : currentIso.borderColor;
+        icon.innerText = currentIso.btnIcon || '🧷';
+
+        const darkBg = !['#ffffff', '#ffe600', '#8d8d8d'].includes((currentIso.color || '').toLowerCase());
+        label.style.color = darkBg ? '#fff' : '#111';
+        label.innerHTML = currentIso.label.replace(' ', '<br>');
+    } else {
+        btn.style.background = '#333';
+        btn.style.borderColor = '#555';
+        icon.innerText = '🧷';
+        label.style.color = '#fff';
+        label.innerHTML = 'ЦВЕТ<br>ИЗО';
+    }
+}
+
+function openIsoColorMenu() {
+    document.getElementById('iso-color-modal').style.display = 'flex';
+}
+
+function closeIsoColorMenu() {
+    document.getElementById('iso-color-modal').style.display = 'none';
+}
+
+function loadPhoto(input, sourceType) {
+    if (!input.files || !input.files[0]) return;
+
+    const file = input.files[0];
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+            const normalized = normalizeImageTo2K(img);
+            baseImage = normalized.baseImage;
+            renderedImageCanvas = normalized.renderedCanvas;
+
+            ictx.clearRect(0, 0, inkCanvas.width, inkCanvas.height);
+
+            if (!isStickyNote) {
+                currentNote = '';
+                localStorage.removeItem('savedNote');
+                localStorage.removeItem('isStickyNote');
+                document.getElementById('sticky-note-indicator').style.display = 'none';
+            }
+
+            if (!isStickyIso) {
+                currentIso = null;
+                localStorage.removeItem('savedIso');
+                updateIsoButton();
+            }
+
+            gpsStamp = null;
+            stashType = null;
+            history = [];
+            isSavePreviewFresh = false;
+            render();
+
+            if (sourceType === 'camera') {
+                autoSaveCopyWithGPS();
+            }
         };
-        reader.readAsDataURL(input.files[0]);
+        img.src = e.target.result;
+    };
+
+    reader.readAsDataURL(file);
+    input.value = '';
+}
+
+function normalizeImageTo2K(img) {
+    let w = img.width;
+    let h = img.height;
+    const longSide = Math.max(w, h);
+
+    if (longSide > MAX_LONG_SIDE) {
+        const ratio = MAX_LONG_SIDE / longSide;
+        w = Math.round(w * ratio);
+        h = Math.round(h * ratio);
     }
 
-    // --- ИСПРАВЛЕННАЯ ФУНКЦИЯ RENDER ---
-    function render() {
-        if (!baseImage) return;
+    const off = document.createElement('canvas');
+    off.width = w;
+    off.height = h;
+    const octx = off.getContext('2d', { alpha: false });
+    octx.drawImage(img, 0, 0, w, h);
 
-        // 1. Высчитываем доступную высоту для самого фото (высота экрана минус поля)
-        const safeHeight = canvas.height - TOP_MARGIN - BOTTOM_MARGIN;
+    return {
+        baseImage: off,
+        renderedCanvas: off
+    };
+}
 
-        // 2. Считаем пропорции, чтобы вписать фото в безопасную зону
-        const ratio = Math.min(canvas.width / baseImage.width, safeHeight / baseImage.height);
-        const w = baseImage.width * ratio;
-        const h = baseImage.height * ratio;
+function autoSaveCopyWithGPS() {
+    if (!renderedImageCanvas) return;
 
-        // 3. Заливаем весь холст черным (создаем поля)
-        ctx.fillStyle = "#000"; 
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const out = document.createElement('canvas');
+    out.width = renderedImageCanvas.width;
+    out.height = renderedImageCanvas.height;
+    const octx = out.getContext('2d', { alpha: false });
 
-        // 4. Центрируем фото в безопасной зоне по вертикали
-        const imgX = (canvas.width - w) / 2;
-        const imgY = TOP_MARGIN + (safeHeight - h) / 2;
+    octx.drawImage(renderedImageCanvas, 0, 0);
 
-        // 5. Рисуем фото
-        ctx.drawImage(baseImage, imgX, imgY, w, h);
-        
-        // 6. Рисуем слой с обводкой (поверх всего холста)
-        ctx.drawImage(inkCanvas, 0, 0);
-        
-        // 7. Рисуем интерфейс (текст и плашки в полях)
-        drawUI();
-    }
-    // ----------------------------------
+    const barH = Math.max(42, Math.round(out.height * 0.06));
+    const fontSize = Math.max(20, Math.round(out.height * 0.026));
+    const text = `📍 ${lastGPS.lat.toFixed(6)}, ${lastGPS.lon.toFixed(6)} (±${lastGPS.acc.toFixed(1)}м)`;
 
-    function drawUI() {
-        // Штамп ИЗО (в верхнем поле)
-        if (isoStamp && isoStamp.label) {
-            const boxW = 170, boxH = 55;
-            const boxX = 10, boxY = 45; // Позиция в верхнем поле
+    octx.fillStyle = 'rgba(0,0,0,0.85)';
+    octx.fillRect(0, out.height - barH, out.width, barH);
 
-            ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(boxX, boxY, boxW, boxH);
-            ctx.strokeStyle = isoStamp.color; ctx.lineWidth = 3; ctx.strokeRect(boxX, boxY, boxW, boxH);
-            ctx.fillStyle = "white"; ctx.font = "bold 13px Arial"; ctx.textAlign = "center";
-            ctx.fillText(isoStamp.type, boxX + boxW/2, boxY + 20);
-            ctx.fillStyle = isoStamp.color; ctx.fillText(isoStamp.label, boxX + boxW/2, boxY + 42);
-        }
+    octx.fillStyle = lastGPS.qualityColor;
+    octx.font = `bold ${fontSize}px Arial`;
+    octx.textAlign = 'center';
+    octx.textBaseline = 'middle';
+    octx.fillText(text, out.width / 2, out.height - barH / 2);
 
-        // Подготовка координат для нижнего поля
-        const textBottomY = canvas.height - 15; // Самая нижняя точка текста
-        const gpsBarH = 35; // Высота полосы GPS
+    const link = document.createElement('a');
+    link.download = `copy_${Date.now()}.jpg`;
+    link.href = out.toDataURL('image/jpeg', 0.92);
+    link.click();
+}
 
-        // GPS штамп (самый низ)
-        if (gpsStamp) {
-            ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(0, canvas.height - gpsBarH, canvas.width, gpsBarH);
-            ctx.fillStyle = gpsStamp.acc > 15 ? "#ff4444" : "#00ff00";
-            ctx.font = "bold 16px Arial"; ctx.textAlign = "center";
-            ctx.fillText(gpsStamp.text, canvas.width/2, textBottomY);
-        }
-
-        // Заметка (над GPS штампом, внутри нижнего поля)
-        if (currentNote) {
-            ctx.font = "bold 18px Arial";
-            const words = currentNote.split(' '), lines = []; let line = '';
-            for (let n=0; n<words.length; n++) {
-                let test = line + words[n] + ' ';
-                if (ctx.measureText(test).width > canvas.width-40) { lines.push(line); line = words[n] + ' '; }
-                else { line = test; }
-            }
-            lines.push(line);
-
-            const lineHeight = 24;
-            const boxH = lines.length * lineHeight + 10;
-            // Позиционируем заметку строго над GPS баром
-            const noteY = canvas.height - gpsBarH - boxH;
-
-            ctx.fillStyle = "rgba(0,0,0,0.7)"; ctx.fillRect(0, noteY, canvas.width, boxH);
-            ctx.fillStyle = "white"; ctx.textAlign = "center";
-            
-            lines.forEach((l, i) => {
-                ctx.fillText(l.trim(), canvas.width/2, noteY + 22 + (i * lineHeight));
-            });
-        }
-    }
-
-    // Отрисовка пальцем (работает по всему экрану, т.к. поверх фото)
-    canvas.addEventListener('touchstart', e => { 
-        drawing = true; ictx.beginPath(); 
-        const rect = canvas.getBoundingClientRect();
-        ictx.moveTo(e.touches[0].clientX - rect.left, e.touches[0].clientY - rect.top); 
+function saveStep() {
+    history.push({
+        ink: inkCanvas.toDataURL('image/png'),
+        note: currentNote,
+        stickyNote: isStickyNote,
+        gpsStamp: gpsStamp ? { ...gpsStamp } : null,
+        iso: currentIso ? { ...currentIso } : null,
+        stickyIso: isStickyIso,
+        stashType: stashType
     });
-    canvas.addEventListener('touchmove', e => { 
-        if (!drawing) return; e.preventDefault(); 
-        const rect = canvas.getBoundingClientRect();
-        ictx.strokeStyle = "red"; ictx.lineWidth = 4; ictx.lineCap = "round";
-        ictx.lineTo(e.touches[0].clientX - rect.left, e.touches[0].clientY - rect.top); ictx.stroke();
+
+    if (history.length > 20) history.shift();
+}
+
+function restoreState(state) {
+    currentNote = state.note || '';
+    isStickyNote = !!state.stickyNote;
+    gpsStamp = state.gpsStamp ? { ...state.gpsStamp } : null;
+    currentIso = state.iso ? { ...state.iso } : null;
+    isStickyIso = !!state.stickyIso;
+    stashType = state.stashType || null;
+
+    document.getElementById('sticky-note-indicator').style.display = isStickyNote ? 'block' : 'none';
+    document.getElementById('sticky-iso-indicator').style.display = isStickyIso ? 'block' : 'none';
+    updateIsoButton();
+
+    ictx.clearRect(0, 0, inkCanvas.width, inkCanvas.height);
+    if (state.ink) {
+        const img = new Image();
+        img.onload = () => {
+            ictx.drawImage(img, 0, 0, inkCanvas.width, inkCanvas.height);
+            render();
+        };
+        img.src = state.ink;
+    } else {
         render();
-    });
-    canvas.addEventListener('touchend', () => { drawing = false; saveStep(); });
+    }
+}
 
-    function toggleGPS() {
-        gpsStamp = { text: `📍 ${lastGPS.lat.toFixed(6)}, ${lastGPS.lon.toFixed(6)} (±${lastGPS.acc.toFixed(1)}м)`, acc: lastGPS.acc };
-        render(); saveStep();
+function undo() {
+    if (history.length === 0) return;
+
+    history.pop();
+
+    if (history.length === 0) {
+        ictx.clearRect(0, 0, inkCanvas.width, inkCanvas.height);
+        gpsStamp = null;
+        stashType = null;
+        render();
+        return;
     }
 
-    function updateNote() {
-        const n = prompt("Описание:", currentNote);
-        if (n !== null) {
-            currentNote = n;
-            isStickyNote = confirm("Закрепить описание?");
-            
-            // Сохраняем состояние
+    restoreState(history[history.length - 1]);
+}
+
+function updateNote() {
+    const n = prompt('Описание:', currentNote);
+    if (n !== null) {
+        currentNote = n.trim();
+        isStickyNote = confirm('Закрепить описание?');
+
+        if (currentNote && isStickyNote) {
             localStorage.setItem('savedNote', currentNote);
-            localStorage.setItem('isSticky', isStickyNote);
-            
-            document.getElementById('sticky-indicator').style.display = isStickyNote ? 'block' : 'none';
-            render(); saveStep();
+            localStorage.setItem('isStickyNote', 'true');
+        } else {
+            localStorage.removeItem('savedNote');
+            localStorage.setItem('isStickyNote', isStickyNote ? 'true' : 'false');
         }
-    }
 
-    function startSave(t) { 
-        isoStamp = { type: t }; 
-        document.getElementById('modal-iso').style.display = 'flex'; 
-    }
-
-    function setIso(label, color) {
-        isoStamp.label = label; 
-        isoStamp.color = color;
-        document.getElementById('modal-iso').style.display = 'none';
+        document.getElementById('sticky-note-indicator').style.display = isStickyNote ? 'block' : 'none';
+        saveStep();
         render();
-        // Даем задержку, чтобы канвас отрисовался перед скриншотом
-        setTimeout(() => {
-            document.getElementById('save-img').src = canvas.toDataURL("image/png");
-            document.getElementById('save-screen').style.display = 'flex';
-        }, 150);
+    }
+}
+
+function toggleGPS() {
+    if (!baseImage) {
+        alert('Сначала загрузи фото.');
+        return;
     }
 
-    function downloadImg() {
-        const link = document.createElement('a');
-        link.download = `photo_${Date.now()}.png`;
-        link.href = canvas.toDataURL("image/png");
-        link.click();
+    if (gpsStamp) {
+        gpsStamp = null;
+    } else {
+        gpsStamp = {
+            text: `📍 ${lastGPS.lat.toFixed(6)}, ${lastGPS.lon.toFixed(6)} (±${lastGPS.acc.toFixed(1)}м)`,
+            acc: lastGPS.acc,
+            qualityColor: lastGPS.qualityColor
+        };
     }
 
-    function closeSave() { document.getElementById('save-screen').style.display = 'none'; }
-    
-    function saveStep() { 
-        history.push({ink: inkCanvas.toDataURL()}); 
-        if(history.length > 10) history.shift(); 
+    saveStep();
+    render();
+}
+
+function startSave(type) {
+    if (!baseImage) {
+        alert('Сначала сделай фото или загрузи его из галереи.');
+        return;
     }
 
-    function undo() {
-        if(history.length > 0) {
-            history.pop();
-            ictx.clearRect(0,0,inkCanvas.width,inkCanvas.height);
-            if (history.length > 0) {
-                const state = history[history.length-1];
-                const ink = new Image();
-                ink.onload = () => { ictx.drawImage(ink, 0, 0); render(); };
-                ink.src = state.ink;
-            } else {
-                render();
-            }
+    stashType = type;
+    saveStep();
+    openSavePreview();
+}
+
+function openSavePreview() {
+    render();
+    setTimeout(() => {
+        document.getElementById('save-img').src = canvas.toDataURL('image/png');
+        document.getElementById('save-screen').style.display = 'flex';
+        isSavePreviewFresh = true;
+    }, 80);
+}
+
+function closeSave() {
+    document.getElementById('save-screen').style.display = 'none';
+    render();
+}
+
+function deleteCurrentPhoto() {
+    if (!confirm('Удалить текущее фото?')) return;
+
+    baseImage = null;
+    renderedImageCanvas = null;
+    gpsStamp = null;
+    stashType = null;
+    history = [];
+    currentNote = isStickyNote ? currentNote : '';
+    if (!isStickyIso) currentIso = null;
+
+    ictx.clearRect(0, 0, inkCanvas.width, inkCanvas.height);
+    document.getElementById('save-screen').style.display = 'none';
+    render();
+}
+
+function getUiLayout() {
+    if (!baseImage) return null;
+
+    const safeHeight = canvas.height - TOP_MARGIN - BOTTOM_MARGIN;
+    const ratio = Math.min(canvas.width / baseImage.width, safeHeight / baseImage.height);
+
+    const w = baseImage.width * ratio;
+    const h = baseImage.height * ratio;
+    const x = (canvas.width - w) / 2;
+    const y = TOP_MARGIN + (safeHeight - h) / 2;
+
+    return { x, y, w, h, ratio };
+}
+
+function render() {
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    if (!baseImage) {
+        ctx.fillStyle = '#777';
+        ctx.font = 'bold 20px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Сделай фото или загрузи из галереи', canvas.width / 2, canvas.height / 2);
+        return;
+    }
+
+    const layout = getUiLayout();
+    ctx.drawImage(baseImage, layout.x, layout.y, layout.w, layout.h);
+    ctx.drawImage(inkCanvas, 0, 0);
+    drawUI();
+}
+
+function drawUI() {
+    drawTypeAndIso();
+    drawGpsStamp();
+    drawNote();
+}
+
+function drawTypeAndIso() {
+    if (!stashType && !currentIso) return;
+
+    const boxW = 190;
+    const boxH = 58;
+    const boxX = 10;
+    const boxY = 50;
+
+    ctx.fillStyle = 'rgba(0,0,0,0.8)';
+    ctx.fillRect(boxX, boxY, boxW, boxH);
+
+    const borderColor = currentIso?.whiteOutline ? '#ffffff' : (currentIso?.borderColor || '#888');
+    ctx.strokeStyle = borderColor;
+    ctx.lineWidth = 3;
+    ctx.strokeRect(boxX, boxY, boxW, boxH);
+
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 13px Arial';
+    ctx.fillStyle = '#fff';
+    ctx.fillText(stashType || 'БЕЗ ТИПА', boxX + boxW / 2, boxY + 20);
+
+    const isoText = currentIso?.label || 'БЕЗ ЦВЕТА';
+    const isoColor = currentIso?.textColor || '#fff';
+
+    if (currentIso?.whiteOutline) {
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = '#fff';
+        ctx.strokeText(isoText, boxX + boxW / 2, boxY + 42);
+    }
+
+    ctx.fillStyle = isoColor;
+    ctx.fillText(isoText, boxX + boxW / 2, boxY + 42);
+}
+
+function drawGpsStamp() {
+    if (!gpsStamp) return;
+
+    const gpsBarH = 36;
+    ctx.fillStyle = 'rgba(0,0,0,0.82)';
+    ctx.fillRect(0, canvas.height - gpsBarH, canvas.width, gpsBarH);
+
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 16px Arial';
+    ctx.fillStyle = gpsStamp.qualityColor || (gpsStamp.acc > 15 ? '#ff4444' : '#00ff00');
+    ctx.fillText(gpsStamp.text, canvas.width / 2, canvas.height - 13);
+}
+
+function drawNote() {
+    if (!currentNote) return;
+
+    ctx.font = 'bold 18px Arial';
+
+    const words = currentNote.split(' ');
+    const lines = [];
+    let line = '';
+
+    for (let i = 0; i < words.length; i++) {
+        const test = line + words[i] + ' ';
+        if (ctx.measureText(test).width > canvas.width - 40) {
+            lines.push(line.trim());
+            line = words[i] + ' ';
+        } else {
+            line = test;
         }
     }
+    if (line.trim()) lines.push(line.trim());
+
+    const gpsBarH = gpsStamp ? 36 : 0;
+    const lineHeight = 24;
+    const boxH = lines.length * lineHeight + 10;
+    const noteY = canvas.height - gpsBarH - boxH;
+
+    ctx.fillStyle = 'rgba(0,0,0,0.72)';
+    ctx.fillRect(0, noteY, canvas.width, boxH);
+
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    lines.forEach((l, i) => {
+        ctx.fillText(l, canvas.width / 2, noteY + 22 + i * lineHeight);
+    });
+}
+
+function downloadImg() {
+    const link = document.createElement('a');
+    link.download = `photo_${Date.now()}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+}
+
+async function shareImg() {
+    try {
+        const blob = await canvasToBlob(canvas, 'image/png', 1);
+        const file = new File([blob], `photo_${Date.now()}.png`, { type: 'image/png' });
+
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+                files: [file],
+                title: 'PhotoEditor export'
+            });
+        } else {
+            alert('В этом браузере шаринг файла не поддерживается. Используй "СОХРАНИТЬ".');
+        }
+    } catch (e) {
+        alert('Не удалось поделиться файлом.');
+    }
+}
+
+function canvasToBlob(cnv, type, quality) {
+    return new Promise((resolve) => {
+        cnv.toBlob(resolve, type, quality);
+    });
+}
+
+canvas.addEventListener('touchstart', (e) => {
+    if (!baseImage) return;
+    drawing = true;
+    ictx.beginPath();
+
+    const rect = canvas.getBoundingClientRect();
+    ictx.moveTo(
+        e.touches[0].clientX - rect.left,
+        e.touches[0].clientY - rect.top
+    );
+}, { passive: true });
+
+canvas.addEventListener('touchmove', (e) => {
+    if (!drawing || !baseImage) return;
+    e.preventDefault();
+
+    const rect = canvas.getBoundingClientRect();
+    ictx.strokeStyle = 'red';
+    ictx.lineWidth = 4;
+    ictx.lineCap = 'round';
+    ictx.lineJoin = 'round';
+    ictx.lineTo(
+        e.touches[0].clientX - rect.left,
+        e.touches[0].clientY - rect.top
+    );
+    ictx.stroke();
+    render();
+}, { passive: false });
+
+canvas.addEventListener('touchend', () => {
+    if (!drawing) return;
+    drawing = false;
+    saveStep();
+}, { passive: true });
 </script>
 </body>
 </html>
