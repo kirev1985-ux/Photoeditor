@@ -2,10 +2,11 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>PhotoEditor V31 - GPS/ISO Upgrade</title>
+    <title>PhotoEditor V32 - Fixed GPS & HQ Save</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         * { box-sizing: border-box; }
+
         body {
             margin: 0;
             background: #000;
@@ -355,7 +356,6 @@ let lastGPS = {
 
 let drawing = false;
 let geocodeTimer = null;
-let isSavePreviewFresh = false;
 
 window.onload = () => {
     resizeUiCanvas();
@@ -644,7 +644,6 @@ function loadPhoto(input, sourceType) {
             gpsStamp = null;
             stashType = null;
             history = [];
-            isSavePreviewFresh = false;
             render();
 
             if (sourceType === 'camera') {
@@ -791,15 +790,11 @@ function toggleGPS() {
         return;
     }
 
-    if (gpsStamp) {
-        gpsStamp = null;
-    } else {
-        gpsStamp = {
-            text: `📍 ${lastGPS.lat.toFixed(6)}, ${lastGPS.lon.toFixed(6)} (±${lastGPS.acc.toFixed(1)}м)`,
-            acc: lastGPS.acc,
-            qualityColor: lastGPS.qualityColor
-        };
-    }
+    gpsStamp = {
+        text: `📍 ${lastGPS.lat.toFixed(6)}, ${lastGPS.lon.toFixed(6)} (±${lastGPS.acc.toFixed(1)}м)`,
+        acc: lastGPS.acc,
+        qualityColor: lastGPS.qualityColor
+    };
 
     saveStep();
     render();
@@ -821,7 +816,6 @@ function openSavePreview() {
     setTimeout(() => {
         document.getElementById('save-img').src = canvas.toDataURL('image/png');
         document.getElementById('save-screen').style.display = 'flex';
-        isSavePreviewFresh = true;
     }, 80);
 }
 
@@ -966,16 +960,115 @@ function drawNote() {
     });
 }
 
+function buildFinalImageCanvas() {
+    if (!baseImage) return null;
+
+    const out = document.createElement('canvas');
+    out.width = baseImage.width;
+    out.height = baseImage.height;
+    const octx = out.getContext('2d', { alpha: false });
+
+    octx.drawImage(baseImage, 0, 0);
+
+    octx.drawImage(inkCanvas, 0, 0, out.width, out.height);
+
+    const scaleX = out.width / canvas.width;
+    const scaleY = out.height / canvas.height;
+
+    if (stashType || currentIso) {
+        const boxW = 190 * scaleX;
+        const boxH = 58 * scaleY;
+        const boxX = 10 * scaleX;
+        const boxY = 50 * scaleY;
+
+        octx.fillStyle = 'rgba(0,0,0,0.8)';
+        octx.fillRect(boxX, boxY, boxW, boxH);
+
+        const borderColor = currentIso?.whiteOutline ? '#ffffff' : (currentIso?.borderColor || '#888');
+        octx.strokeStyle = borderColor;
+        octx.lineWidth = Math.max(3, 3 * Math.min(scaleX, scaleY));
+        octx.strokeRect(boxX, boxY, boxW, boxH);
+
+        octx.textAlign = 'center';
+        octx.fillStyle = '#fff';
+        octx.font = `bold ${Math.max(14, 13 * scaleY)}px Arial`;
+        octx.fillText(stashType || 'БЕЗ ТИПА', boxX + boxW / 2, boxY + 20 * scaleY);
+
+        const isoText = currentIso?.label || 'БЕЗ ЦВЕТА';
+        const isoColor = currentIso?.textColor || '#fff';
+
+        if (currentIso?.whiteOutline) {
+            octx.lineWidth = Math.max(4, 4 * Math.min(scaleX, scaleY));
+            octx.strokeStyle = '#fff';
+            octx.strokeText(isoText, boxX + boxW / 2, boxY + 42 * scaleY);
+        }
+
+        octx.fillStyle = isoColor;
+        octx.fillText(isoText, boxX + boxW / 2, boxY + 42 * scaleY);
+    }
+
+    if (gpsStamp) {
+        const gpsBarH = 36 * scaleY;
+        octx.fillStyle = 'rgba(0,0,0,0.82)';
+        octx.fillRect(0, out.height - gpsBarH, out.width, gpsBarH);
+
+        octx.textAlign = 'center';
+        octx.fillStyle = gpsStamp.qualityColor || '#00ff00';
+        octx.font = `bold ${Math.max(16, 16 * scaleY)}px Arial`;
+        octx.fillText(gpsStamp.text, out.width / 2, out.height - 13 * scaleY);
+    }
+
+    if (currentNote) {
+        octx.font = `bold ${Math.max(18, 18 * scaleY)}px Arial`;
+
+        const words = currentNote.split(' ');
+        const lines = [];
+        let line = '';
+        for (let i = 0; i < words.length; i++) {
+            const test = line + words[i] + ' ';
+            if (octx.measureText(test).width > out.width - 40 * scaleX) {
+                lines.push(line.trim());
+                line = words[i] + ' ';
+            } else {
+                line = test;
+            }
+        }
+        if (line.trim()) lines.push(line.trim());
+
+        const gpsBarH = gpsStamp ? 36 * scaleY : 0;
+        const lineHeight = 24 * scaleY;
+        const boxH = lines.length * lineHeight + 10 * scaleY;
+        const noteY = out.height - gpsBarH - boxH;
+
+        octx.fillStyle = 'rgba(0,0,0,0.72)';
+        octx.fillRect(0, noteY, out.width, boxH);
+
+        octx.fillStyle = '#fff';
+        octx.textAlign = 'center';
+        lines.forEach((l, i) => {
+            octx.fillText(l, out.width / 2, noteY + 22 * scaleY + i * lineHeight);
+        });
+    }
+
+    return out;
+}
+
 function downloadImg() {
+    const out = buildFinalImageCanvas();
+    if (!out) return;
+
     const link = document.createElement('a');
     link.download = `photo_${Date.now()}.png`;
-    link.href = canvas.toDataURL('image/png');
+    link.href = out.toDataURL('image/png');
     link.click();
 }
 
 async function shareImg() {
     try {
-        const blob = await canvasToBlob(canvas, 'image/png', 1);
+        const out = buildFinalImageCanvas();
+        if (!out) return;
+
+        const blob = await canvasToBlob(out, 'image/png', 1);
         const file = new File([blob], `photo_${Date.now()}.png`, { type: 'image/png' });
 
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
