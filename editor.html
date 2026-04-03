@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>PhotoEditor V32 - Fixed GPS & HQ Save</title>
+    <title>PhotoEditor V33 - Clean UI</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         * { box-sizing: border-box; }
@@ -28,10 +28,10 @@
             top: 0;
             left: 0;
             width: 100%;
-            background: rgba(0,0,0,0.86);
+            background: rgba(0,0,0,0.88);
             padding: 6px 10px 8px;
             text-align: center;
-            z-index: 30;
+            z-index: 40;
             border-bottom: 1px solid rgba(255,255,255,0.08);
         }
 
@@ -51,44 +51,32 @@
             text-overflow: ellipsis;
         }
 
-        #side-menu {
+        #top-tools {
             position: fixed;
+            top: 66px;
             right: 10px;
-            top: 64px;
             display: flex;
             flex-direction: column;
-            gap: 10px;
-            z-index: 20;
+            gap: 8px;
+            z-index: 35;
         }
 
-        .btn-side {
-            width: 60px;
-            min-height: 60px;
-            background: #333;
-            border: 1px solid #555;
-            border-radius: 14px;
+        .top-tool-btn {
+            width: 46px;
+            height: 46px;
+            background: rgba(40,40,40,0.92);
+            border: 1px solid #5c5c5c;
+            border-radius: 12px;
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            font-size: 22px;
-            cursor: pointer;
+            font-size: 21px;
             position: relative;
-            padding: 4px;
-            text-align: center;
             user-select: none;
         }
 
-        .btn-label {
-            font-size: 9px;
-            font-weight: bold;
-            margin-top: 2px;
-            line-height: 1.05;
-            word-break: break-word;
-        }
-
         .sticky-indicator {
-            font-size: 12px;
+            font-size: 11px;
             color: #0f0;
             display: none;
             position: absolute;
@@ -105,45 +93,62 @@
             z-index: 2;
         }
 
-        #bottom-menu {
+        #bottom-main-bar {
             position: fixed;
-            bottom: 110px;
+            left: 0;
+            bottom: 18px;
             width: 100%;
             display: flex;
             justify-content: center;
-            align-items: center;
-            gap: 18px;
-            z-index: 20;
+            align-items: end;
+            gap: 22px;
+            z-index: 35;
+            padding: 0 12px;
         }
 
-        .btn-cam {
-            width: 84px;
-            height: 84px;
-            background: #fff;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 40px;
-            color: #000;
-            border: 5px solid #444;
-            cursor: pointer;
-            user-select: none;
-        }
-
-        .btn-gal {
-            width: 60px;
-            height: 60px;
-            background: #d9d9d9;
-            color: #000;
+        .main-btn {
+            width: 68px;
+            height: 68px;
+            background: rgba(50,50,50,0.94);
+            border: 2px solid #666;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 28px;
-            border: 3px solid #555;
-            cursor: pointer;
+            color: #fff;
             user-select: none;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+        }
+
+        .camera-btn {
+            width: 94px;
+            height: 94px;
+            background: #f2f2f2;
+            border: 6px solid #666;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 42px;
+            color: #111;
+            user-select: none;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.45);
+        }
+
+        .main-btn-wrap, .camera-btn-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .main-btn-label {
+            font-size: 11px;
+            font-weight: bold;
+            color: #e6e6e6;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+            letter-spacing: 0.3px;
         }
 
         .modal {
@@ -167,6 +172,21 @@
             width: min(92vw, 340px);
             max-height: 65vh;
             overflow-y: auto;
+        }
+
+        .choice-item {
+            width: 100%;
+            padding: 16px 14px;
+            margin: 8px 0;
+            border-radius: 14px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 15px;
+            cursor: pointer;
+            border: 2px solid rgba(255,255,255,0.85);
+            user-select: none;
+            background: #2b2b2b;
+            color: #fff;
         }
 
         .iso-choice {
@@ -227,7 +247,7 @@
         .hint-badge {
             position: fixed;
             left: 10px;
-            bottom: 18px;
+            bottom: 126px;
             z-index: 20;
             background: rgba(0,0,0,0.75);
             border: 1px solid rgba(255,255,255,0.1);
@@ -235,7 +255,7 @@
             padding: 8px 10px;
             font-size: 11px;
             color: #ddd;
-            max-width: 78vw;
+            max-width: 66vw;
             line-height: 1.35;
         }
     </style>
@@ -249,40 +269,45 @@
 
 <canvas id="canvas"></canvas>
 
-<div id="side-menu">
-    <div class="btn-side" onclick="toggleGPS()">
-        📍<span class="btn-label">GPS</span>
-    </div>
-
-    <div class="btn-side" style="position:relative;" onclick="updateNote()">
+<div id="top-tools">
+    <div class="top-tool-btn" onclick="updateNote()">
         <div id="sticky-note-indicator" class="sticky-indicator">✓</div>
-        📝<span class="btn-label">ТЕКСТ</span>
+        📝
     </div>
-
-    <div id="btn-iso-color" class="btn-side" style="position:relative;" onclick="openIsoColorMenu()">
+    <div id="btn-iso-color" class="top-tool-btn" onclick="openIsoColorMenu()">
         <div id="sticky-iso-indicator" class="sticky-indicator">✓</div>
         <span id="iso-color-icon">🧷</span>
-        <span class="btn-label" id="iso-color-btn-label">ЦВЕТ<br>ИЗО</span>
+    </div>
+    <div class="top-tool-btn" onclick="document.getElementById('galleryInput').click()">🖼️</div>
+    <div class="top-tool-btn" onclick="undo()">↩️</div>
+    <div class="top-tool-btn" onclick="location.reload()">🔄</div>
+</div>
+
+<div id="bottom-main-bar">
+    <div class="main-btn-wrap">
+        <div class="main-btn" onclick="toggleGPS()">📍</div>
+        <div class="main-btn-label">GPS</div>
     </div>
 
-    <div class="btn-side" onclick="startSave('ТАЙНИК')">
-        🧰<span class="btn-label">ТАЙНИК</span>
+    <div class="camera-btn-wrap">
+        <div class="camera-btn" onclick="document.getElementById('cameraInput').click()">📷</div>
+        <div class="main-btn-label">КАМЕРА</div>
     </div>
 
-    <div class="btn-side" onclick="startSave('МАГНИТ')">
-        🧲<span class="btn-label">МАГНИТ</span>
-    </div>
-
-    <div class="btn-side" onclick="startSave('ПОДЪЕЗД')">
-        🏢<span class="btn-label">ПОДЪЕЗД</span>
+    <div class="main-btn-wrap">
+        <div class="main-btn" onclick="openTypeMenu()">📦</div>
+        <div class="main-btn-label">ТИП</div>
     </div>
 </div>
 
-<div id="bottom-menu">
-    <div class="btn-side" onclick="undo()">↩️<span class="btn-label">НАЗАД</span></div>
-    <div class="btn-gal" onclick="document.getElementById('galleryInput').click()">🖼️</div>
-    <div class="btn-cam" onclick="document.getElementById('cameraInput').click()">📷</div>
-    <div class="btn-side" onclick="location.reload()">🔄<span class="btn-label">СБРОС</span></div>
+<div id="type-modal" class="modal">
+    <h3>ТИП КЛАДА</h3>
+    <div class="choice-wrap">
+        <div class="choice-item" onclick="startSave('ТАЙНИК')">🧰 ТАЙНИК</div>
+        <div class="choice-item" onclick="startSave('МАГНИТ')">🧲 МАГНИТ</div>
+        <div class="choice-item" onclick="startSave('ПОДЪЕЗД')">🏢 ПОДЪЕЗД</div>
+    </div>
+    <div class="modal-cancel" onclick="closeTypeMenu()">ОТМЕНА</div>
 </div>
 
 <div id="iso-color-modal" class="modal">
@@ -582,7 +607,6 @@ function chooseIsoColor(opt) {
 function updateIsoButton() {
     const ind = document.getElementById('sticky-iso-indicator');
     const icon = document.getElementById('iso-color-icon');
-    const label = document.getElementById('iso-color-btn-label');
     const btn = document.getElementById('btn-iso-color');
 
     if (isStickyIso) ind.style.display = 'block';
@@ -592,16 +616,10 @@ function updateIsoButton() {
         btn.style.background = currentIso.color;
         btn.style.borderColor = currentIso.whiteOutline ? '#fff' : currentIso.borderColor;
         icon.innerText = currentIso.btnIcon || '🧷';
-
-        const darkBg = !['#ffffff', '#ffe600', '#8d8d8d'].includes((currentIso.color || '').toLowerCase());
-        label.style.color = darkBg ? '#fff' : '#111';
-        label.innerHTML = currentIso.label.replace(' ', '<br>');
     } else {
-        btn.style.background = '#333';
-        btn.style.borderColor = '#555';
+        btn.style.background = 'rgba(40,40,40,0.92)';
+        btn.style.borderColor = '#5c5c5c';
         icon.innerText = '🧷';
-        label.style.color = '#fff';
-        label.innerHTML = 'ЦВЕТ<br>ИЗО';
     }
 }
 
@@ -611,6 +629,14 @@ function openIsoColorMenu() {
 
 function closeIsoColorMenu() {
     document.getElementById('iso-color-modal').style.display = 'none';
+}
+
+function openTypeMenu() {
+    document.getElementById('type-modal').style.display = 'flex';
+}
+
+function closeTypeMenu() {
+    document.getElementById('type-modal').style.display = 'none';
 }
 
 function loadPhoto(input, sourceType) {
@@ -808,6 +834,7 @@ function startSave(type) {
 
     stashType = type;
     saveStep();
+    closeTypeMenu();
     openSavePreview();
 }
 
@@ -969,7 +996,6 @@ function buildFinalImageCanvas() {
     const octx = out.getContext('2d', { alpha: false });
 
     octx.drawImage(baseImage, 0, 0);
-
     octx.drawImage(inkCanvas, 0, 0, out.width, out.height);
 
     const scaleX = out.width / canvas.width;
